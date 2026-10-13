@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+**/node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+
+# environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# generated files
+dist/
+build/
+coverage/
+.vite/
+*.log
+
+# local database and runtime data
+*.db
+*.db-shm
+*.db-wal
+server/prisma/dev.db
+server/prisma/dev.db-journal
+
+# editor and OS files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# local planning files
+work/
+tmp/
