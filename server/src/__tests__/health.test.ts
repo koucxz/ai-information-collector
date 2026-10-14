@@ -17,6 +17,7 @@ describe('GET /api/health', () => {
       .set('Origin', 'http://localhost:5173');
 
     expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(response.headers['ratelimit-limit']).toBe('120');
   });
 
   it('returns a stable JSON response for unknown routes', async () => {
