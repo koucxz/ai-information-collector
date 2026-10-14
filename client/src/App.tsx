@@ -1,6 +1,37 @@
+import { useEffect, useState } from 'react';
+
 const sources = ['百度', 'B 站', '微博', '知乎', '掘金', 'GitHub'];
+type ServiceStatus = 'checking' | 'online' | 'offline';
 
 function App() {
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('checking');
+
+  const checkHealth = async () => {
+    setServiceStatus('checking');
+
+    try {
+      const response = await fetch('/api/health');
+      if (!response.ok) {
+        throw new Error('health check failed');
+      }
+
+      const payload = (await response.json()) as { status?: string };
+      setServiceStatus(payload.status === 'ok' ? 'online' : 'offline');
+    } catch {
+      setServiceStatus('offline');
+    }
+  };
+
+  useEffect(() => {
+    void checkHealth();
+  }, []);
+
+  const statusLabel = {
+    checking: '正在连接服务',
+    online: '服务已连接',
+    offline: '服务未连接'
+  }[serviceStatus];
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -11,7 +42,10 @@ function App() {
             <span>AI 信息雷达</span>
           </div>
         </div>
-        <span className="status"><i /> 本地开发中</span>
+        <div className="status-group">
+          <span className={`status status-${serviceStatus}`}><i /> {statusLabel}</span>
+          {serviceStatus === 'offline' && <button className="retry-button" onClick={() => void checkHealth()}>重新检查</button>}
+        </div>
       </header>
 
       <section className="hero">
