@@ -3,6 +3,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 import { topicRouter } from './modules/topics/topic.routes.js';
+import { collectionRouter } from './modules/collection/collection.routes.js';
 
 export const app = express();
 
@@ -19,6 +20,7 @@ app.get('/api/health', (_request, response) => {
 });
 
 app.use('/api/topics', topicRouter);
+app.use('/api/collect', collectionRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ error: '接口不存在' });

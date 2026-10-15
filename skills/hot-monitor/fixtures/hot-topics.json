@@ -1,0 +1,26 @@
+[
+  {
+    "title": "国产大模型开始进入企业知识库工作流",
+    "summary": "多家团队将检索增强和权限控制结合到内部知识库。",
+    "content": "企业 AI 应用从演示走向日常工作流，重点关注数据权限、评测和成本。",
+    "url": "https://example.com/signaldock/ai-knowledge-base",
+    "publishedAt": "2026-10-14T09:30:00+08:00",
+    "keywords": ["人工智能", "AI", "大模型"]
+  },
+  {
+    "title": "TypeScript 项目开始统一运行时校验",
+    "summary": "团队通过 Zod 和接口契约减少前后端参数漂移。",
+    "content": "运行时校验、错误边界和自动化测试成为中小型全栈项目的基础设施。",
+    "url": "https://example.com/signaldock/typescript-validation",
+    "publishedAt": "2026-10-13T16:10:00+08:00",
+    "keywords": ["TypeScript", "软件工程", "工程实践"]
+  },
+  {
+    "title": "信息监测工具开始关注内容变化而非单次搜索",
+    "summary": "持续快照和来源合并可以减少重复阅读。",
+    "content": "用户更关心新出现的内容、原文变化和同一事件的多来源证据。",
+    "url": "https://example.com/signaldock/change-monitoring",
+    "publishedAt": "2026-10-12T11:20:00+08:00",
+    "keywords": ["信息收集", "变化检测", "信息监测"]
+  }
+]
