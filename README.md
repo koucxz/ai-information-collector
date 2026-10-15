@@ -13,6 +13,7 @@ SignalDock 按照用户设置的关注主题，从百度、B 站、微博、知�
 ## 功能特性
 
 - 关注主题、关键词、别名和排除词管理
+- 主题和关键词的新增、编辑、启停与删除
 - 国内主要信息平台聚合
 - GitHub 项目、Release 和 Issue 动态收集
 - URL、标题和内容指纹去重
@@ -60,7 +61,7 @@ flowchart LR
 
 - **后端：** Node.js、TypeScript、Express 5
 - **前端：** React 19、Vite、Tailwind CSS
-- **数据库：** Prisma、SQLite
+- **数据库：** SQLite（Node.js 内置 `node:sqlite`）
 - **AI：** OpenAI 兼容接口，默认使用硅基流动
 - **定时任务：** node-cron
 - **实时通信和通知：** Socket.io、Nodemailer
@@ -113,8 +114,8 @@ GITHUB_TOKEN=
 
 - [x] 初始化 Express 和 React 应用
 - [x] 增加健康检查、开发环境代理、CORS 和基础限流
-- [ ] 实现关注主题和关键词管理
-- [ ] 建立 Prisma 数据模型和 SQLite 持久化
+- [x] 实现关注主题和关键词管理
+- [x] 建立 SQLite 数据模型和本地持久化
 - [ ] 接入百度、B 站、微博、知乎和掘金
 - [ ] 实现 URL、内容去重和事件合并
 - [ ] 增加历史快照和变化检测
