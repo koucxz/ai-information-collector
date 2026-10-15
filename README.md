@@ -71,7 +71,7 @@ flowchart LR
 
 ### 环境要求
 
-- Node.js 20+
+- Node.js 24+
 - npm 10+
 - Git
 
