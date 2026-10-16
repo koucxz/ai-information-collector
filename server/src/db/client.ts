@@ -17,6 +17,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS topics (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, aliases_json TEXT NOT NULL DEFAULT '[]', exclude_words_json TEXT NOT NULL DEFAULT '[]', enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS keywords (id TEXT PRIMARY KEY, value TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, topic_id TEXT NOT NULL REFERENCES topics(id) ON DELETE CASCADE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(topic_id, value));
   CREATE INDEX IF NOT EXISTS keywords_topic_enabled_idx ON keywords(topic_id, enabled);
+  CREATE TABLE IF NOT EXISTS information_items (id TEXT PRIMARY KEY, source TEXT NOT NULL, source_name TEXT NOT NULL, keyword TEXT NOT NULL, title TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', published_at TEXT, collected_at TEXT NOT NULL, fingerprint TEXT NOT NULL, dedupe_key TEXT NOT NULL, event_key TEXT NOT NULL, is_read INTEGER NOT NULL DEFAULT 0, relevance_score REAL NOT NULL DEFAULT 0, importance_score REAL NOT NULL DEFAULT 0, ai_status TEXT NOT NULL DEFAULT 'pending', analysis_summary TEXT NOT NULL DEFAULT '', analysis_reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(source, dedupe_key));
+  CREATE INDEX IF NOT EXISTS information_event_idx ON information_items(event_key);
+  CREATE INDEX IF NOT EXISTS information_collected_idx ON information_items(collected_at);
 `);
 
 const now = () => new Date().toISOString();
