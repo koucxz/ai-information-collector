@@ -20,6 +20,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS information_items (id TEXT PRIMARY KEY, source TEXT NOT NULL, source_name TEXT NOT NULL, keyword TEXT NOT NULL, title TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', published_at TEXT, collected_at TEXT NOT NULL, fingerprint TEXT NOT NULL, dedupe_key TEXT NOT NULL, event_key TEXT NOT NULL, is_read INTEGER NOT NULL DEFAULT 0, relevance_score REAL NOT NULL DEFAULT 0, importance_score REAL NOT NULL DEFAULT 0, ai_status TEXT NOT NULL DEFAULT 'pending', analysis_summary TEXT NOT NULL DEFAULT '', analysis_reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(source, dedupe_key));
   CREATE INDEX IF NOT EXISTS information_event_idx ON information_items(event_key);
   CREATE INDEX IF NOT EXISTS information_collected_idx ON information_items(collected_at);
+  CREATE TABLE IF NOT EXISTS information_snapshots (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, title TEXT NOT NULL, content TEXT NOT NULL, fingerprint TEXT NOT NULL, captured_at TEXT NOT NULL);
+  CREATE INDEX IF NOT EXISTS information_snapshot_item_idx ON information_snapshots(item_id, captured_at);
+  CREATE TABLE IF NOT EXISTS information_changes (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, change_type TEXT NOT NULL, summary TEXT NOT NULL, created_at TEXT NOT NULL);
+  CREATE INDEX IF NOT EXISTS information_change_item_idx ON information_changes(item_id, created_at);
 `);
 
 const now = () => new Date().toISOString();

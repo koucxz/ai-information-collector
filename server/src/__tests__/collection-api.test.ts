@@ -23,4 +23,15 @@ describe('GET /api/collect/preview', () => {
     expect(skipped.body.stats.keywords).toBe(0);
     expect((await request(app).get('/api/collect/preview?source=unknown')).status).toBe(400);
   });
+
+  it('persists fixture results and exposes changes', async () => {
+    const topic = await request(app).post('/api/topics').send({ name: 'AI' });
+    await request(app).post(`/api/topics/${topic.body.data.id}/keywords`).send({ value: '人工智能' });
+    const first = await request(app).get('/api/collect/preview?source=fixture&persist=true');
+    const second = await request(app).get('/api/collect/preview?source=fixture&persist=true');
+    const changes = await request(app).get('/api/history/changes');
+    expect(first.body.persistence).toMatchObject({ saved: 1, snapshots: 1, changes: 1 });
+    expect(second.body.persistence).toMatchObject({ saved: 0, snapshots: 1, changes: 0 });
+    expect(changes.body.data).toHaveLength(1);
+  });
 });
