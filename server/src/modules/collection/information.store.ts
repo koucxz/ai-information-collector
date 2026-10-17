@@ -6,6 +6,7 @@ import { normalizeUrl } from './normalize.js';
 export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string };
 
 const eventKeyFor = (title: string) => createHash('sha256').update(title.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()).digest('hex').slice(0, 24);
+export const dedupeKeyFor = (item: Pick<SearchResult, 'url' | 'fingerprint'>) => { const normalizedUrl = normalizeUrl(item.url); return normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`; };
 const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason) });
 
 export const informationStore = {
@@ -15,9 +16,10 @@ export const informationStore = {
     for (const item of results) {
       const timestamp = new Date().toISOString();
       const normalizedUrl = normalizeUrl(item.url);
-      const dedupeKey = normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`;
+      const dedupeKey = dedupeKeyFor(item);
       const result = insert.run(randomUUID(), item.source, item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, dedupeKey, eventKeyFor(item.title), timestamp, timestamp);
       saved += Number(result.changes);
+      db.prepare('UPDATE information_items SET source_name = ?, keyword = ?, title = ?, summary = ?, content = ?, url = ?, published_at = ?, collected_at = ?, fingerprint = ?, event_key = ?, updated_at = ? WHERE source = ? AND dedupe_key = ?').run(item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, eventKeyFor(item.title), timestamp, item.source, dedupeKey);
     }
     return { saved, duplicates: results.length - saved };
   },
