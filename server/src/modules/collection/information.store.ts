@@ -25,5 +25,6 @@ export const informationStore = {
   },
   list() { return (db.prepare('SELECT * FROM information_items ORDER BY collected_at DESC').all() as unknown as Record<string, unknown>[]).map(mapRow); },
   findById(id: string) { const row = db.prepare('SELECT * FROM information_items WHERE id = ?').get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
+  updateAnalysis(id: string, analysis: { relevanceScore: number; importanceScore: number; summary: string; reason: string; provider: string }) { db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?').run(analysis.relevanceScore, analysis.importanceScore, analysis.provider, analysis.summary, analysis.reason, new Date().toISOString(), id); return this.findById(id); },
   eventKeyFor
 };
