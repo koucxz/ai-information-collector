@@ -1,6 +1,7 @@
 import type { SourceAdapter } from './collection.types.js';
 import { BaiduAdapter } from './baidu.adapter.js';
 import { FixtureAdapter } from './fixture.adapter.js';
+import { GitHubAdapter } from './github.adapter.js';
 import { BilibiliAdapter, PublicHtmlAdapter } from './public-source.adapter.js';
 
 export const sourceCatalog = [
@@ -9,7 +10,8 @@ export const sourceCatalog = [
   { id: 'bilibili', name: 'B 站' },
   { id: 'weibo', name: '微博' },
   { id: 'zhihu', name: '知乎' },
-  { id: 'juejin', name: '掘金' }
+  { id: 'juejin', name: '掘金' },
+  { id: 'github', name: 'GitHub' }
 ] as const;
 
 type SourceId = typeof sourceCatalog[number]['id'];
@@ -19,7 +21,8 @@ const factories: Record<SourceId, () => SourceAdapter> = {
   bilibili: () => new BilibiliAdapter(),
   weibo: () => new PublicHtmlAdapter('weibo'),
   zhihu: () => new PublicHtmlAdapter('zhihu'),
-  juejin: () => new PublicHtmlAdapter('juejin')
+  juejin: () => new PublicHtmlAdapter('juejin'),
+  github: () => new GitHubAdapter()
 };
 
 export const createSourceAdapters = (sources: string[]) => {
