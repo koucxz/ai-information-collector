@@ -1,7 +1,7 @@
 # SignalDock
 
 ![状态](https://img.shields.io/badge/status-开发中-orange)
-![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-3178c6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=111827)
 ![许可证](https://img.shields.io/badge/license-MIT-22c55e)
@@ -18,6 +18,7 @@ SignalDock 按照用户设置的关注主题，从百度、B 站、微博、知�
 - 采集结果保存、来源保留和基础事件合并
 - 历史快照、首次发现和内容更新检测
 - AI 相关性、重要程度和摘要分析，无 Key 时自动 fallback
+- 信息流筛选、排序、分页、未读状态和事件来源查看
 - 国内主要信息平台聚合
 - GitHub 项目、Release 和 Issue 动态收集
 - URL、标题和内容指纹去重
@@ -128,6 +129,7 @@ GITHUB_TOKEN=
 - [ ] 实现 URL、内容去重和事件合并
 - [x] 增加历史快照和变化检测
 - [x] 增加 AI 结构化分析和无密钥 fallback
+- [x] 完成信息流、筛选、排序、分页和未读状态
 - [ ] 接入 GitHub 项目、Release 和 Issue
 - [ ] 增加 AI 结构化分析和无密钥降级
 - [ ] 完成信息流、筛选、排序、分页和未读状态
