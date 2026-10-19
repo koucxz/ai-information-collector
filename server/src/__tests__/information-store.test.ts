@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../db/client.js';
-import { informationStore } from '../modules/collection/information.store.js';
+import { informationStore, titleSimilarity } from '../modules/collection/information.store.js';
 import { normalizeResult } from '../modules/collection/normalize.js';
 
 beforeEach(() => db.exec('DELETE FROM information_items; DELETE FROM keywords; DELETE FROM topics;'));
@@ -14,5 +14,15 @@ describe('information persistence', () => {
     const items = informationStore.list();
     expect(items).toHaveLength(2);
     expect(items[0].eventKey).toBe(items[1].eventKey);
+  });
+
+  it('merges similar cross-source titles and exposes event metadata', () => {
+    const first = normalizeResult({ source: 'baidu', sourceName: '百度', keyword: 'AI', title: '国产大模型进入企业知识库工作流', summary: '', content: '正文', url: 'https://a.example/news', publishedAt: null });
+    const second = normalizeResult({ source: 'zhihu', sourceName: '知乎', keyword: 'AI', title: '重磅：国产大模型正式进入企业知识库工作流', summary: '', content: '分析', url: 'https://b.example/question/1', publishedAt: null });
+    expect(titleSimilarity(first.title, second.title)).toBeGreaterThan(0.68);
+    informationStore.saveResults([first, second]);
+    const items = informationStore.list();
+    expect(items[0].eventKey).toBe(items[1].eventKey);
+    expect(informationStore.event(items[0].id)).toMatchObject({ sourceCount: 2 });
   });
 });

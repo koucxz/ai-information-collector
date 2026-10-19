@@ -6,7 +6,17 @@ export const cleanText = (value: string | undefined | null) => stripHtml(value ?
 export const normalizeUrl = (value: string | undefined | null) => {
   const raw = cleanText(value);
   if (!raw) return '';
-  try { const url = new URL(raw); url.hash = ''; return url.toString(); } catch { return raw; }
+  try {
+    const url = new URL(raw);
+    url.hash = '';
+    url.hostname = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(?:utm_.+|spm|from|source|ref|referer|share_source|share_medium|timestamp)$/i.test(key)) url.searchParams.delete(key);
+    }
+    url.searchParams.sort();
+    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, '');
+    return url.toString();
+  } catch { return raw; }
 };
 
 export const fingerprintFor = (input: Pick<SearchResult, 'source' | 'title' | 'content' | 'url'>) => createHash('sha256').update([input.source, normalizeUrl(input.url), cleanText(input.title), cleanText(input.content)].join('\n')).digest('hex');

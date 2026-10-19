@@ -5,7 +5,7 @@ import { createSourceAdapters } from '../modules/collection/source.registry.js';
 describe('domestic public source adapters', () => {
   it('parses Bilibili search data', () => {
     const results = parseBilibiliResults({ data: { result: [{ title: '<em>AI</em> 工具', description: '视频介绍', arcurl: '//www.bilibili.com/video/BV1abc', pubdate: 1_700_000_000 }] } }, 'AI');
-    expect(results[0]).toMatchObject({ source: 'bilibili', sourceName: 'B 站', title: 'AI 工具', url: 'https://www.bilibili.com/video/BV1abc' });
+    expect(results[0]).toMatchObject({ source: 'bilibili', sourceName: 'B 站', title: 'AI 工具', url: 'https://bilibili.com/video/BV1abc' });
   });
 
   it.each([

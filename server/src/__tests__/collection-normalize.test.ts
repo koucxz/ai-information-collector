@@ -9,4 +9,9 @@ describe('collection normalization', () => {
     expect(first.url).toBe('https://example.com/a');
     expect(first.fingerprint).toBe(second);
   });
+
+  it('removes tracking parameters and orders meaningful query parameters', () => {
+    const result = normalizeResult({ source: 'baidu', sourceName: '百度', keyword: 'AI', title: 'AI', summary: '', content: 'AI', url: 'https://WWW.Example.com/news/?utm_source=feed&b=2&a=1#top', publishedAt: null });
+    expect(result.url).toBe('https://example.com/news?a=1&b=2');
+  });
 });
