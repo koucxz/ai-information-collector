@@ -3,8 +3,9 @@ import { db } from '../../db/client.js';
 import type { SearchResult } from './collection.types.js';
 import { normalizeUrl } from './normalize.js';
 
-export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string };
-export type FeedOptions = { source?: string; unread?: boolean; minImportance?: number; minRelevance?: number; sort?: 'latest' | 'importance'; page: number; pageSize: number };
+export type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
+export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null; personalizedScore: number };
+export type FeedOptions = { source?: string; unread?: boolean; minImportance?: number; minRelevance?: number; sort?: 'latest' | 'importance' | 'personalized'; page: number; pageSize: number };
 
 const canonicalTitle = (title: string) => title.toLocaleLowerCase()
   .replace(/[【\[（(][^】\]）)]*[】\]）)]/g, ' ')
@@ -37,7 +38,15 @@ const resolveEventKey = (title: string) => {
   return match?.key ?? eventKeyFor(title);
 };
 export const dedupeKeyFor = (item: Pick<SearchResult, 'url' | 'fingerprint'>) => { const normalizedUrl = normalizeUrl(item.url); return normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`; };
-const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason) });
+const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason), feedback: row.feedback ? String(row.feedback) as FeedbackValue : null, personalizedScore: Number(row.personalized_score ?? 0) });
+
+const feedbackJoin = 'LEFT JOIN information_feedback feedback_row ON feedback_row.item_id = information_items.id';
+const feedbackSelect = `information_items.*, feedback_row.value AS feedback,
+  (information_items.importance_score * 0.55 + information_items.relevance_score * 0.45
+    + CASE feedback_row.value WHEN 'helpful' THEN 0.4 WHEN 'irrelevant' THEN -0.5 WHEN 'duplicate' THEN -0.7 ELSE 0 END
+    + COALESCE((SELECT AVG(CASE source_feedback.value WHEN 'helpful' THEN 0.15 WHEN 'irrelevant' THEN -0.2 WHEN 'duplicate' THEN -0.1 ELSE 0 END) FROM information_feedback source_feedback JOIN information_items source_item ON source_item.id = source_feedback.item_id WHERE source_item.source = information_items.source), 0)
+    + COALESCE((SELECT AVG(CASE keyword_feedback.value WHEN 'helpful' THEN 0.15 WHEN 'irrelevant' THEN -0.2 WHEN 'duplicate' THEN -0.1 ELSE 0 END) FROM information_feedback keyword_feedback JOIN information_items keyword_item ON keyword_item.id = keyword_feedback.item_id WHERE keyword_item.keyword = information_items.keyword), 0)
+  ) AS personalized_score`;
 
 export const informationStore = {
   saveResults(results: SearchResult[]) {
@@ -54,21 +63,27 @@ export const informationStore = {
     }
     return { saved, duplicates: results.length - saved };
   },
-  list() { return (db.prepare('SELECT * FROM information_items ORDER BY collected_at DESC').all() as unknown as Record<string, unknown>[]).map(mapRow); },
+  list() { return (db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} ORDER BY collected_at DESC`).all() as unknown as Record<string, unknown>[]).map(mapRow); },
   feed(options: FeedOptions) {
     const conditions: string[] = []; const params: Array<string | number> = [];
-    if (options.source) { conditions.push('source = ?'); params.push(options.source); }
-    if (options.unread) conditions.push('is_read = 0');
-    if (options.minImportance !== undefined) { conditions.push('importance_score >= ?'); params.push(options.minImportance); }
-    if (options.minRelevance !== undefined) { conditions.push('relevance_score >= ?'); params.push(options.minRelevance); }
+    if (options.source) { conditions.push('information_items.source = ?'); params.push(options.source); }
+    if (options.unread) conditions.push('information_items.is_read = 0');
+    if (options.minImportance !== undefined) { conditions.push('information_items.importance_score >= ?'); params.push(options.minImportance); }
+    if (options.minRelevance !== undefined) { conditions.push('information_items.relevance_score >= ?'); params.push(options.minRelevance); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const order = options.sort === 'importance' ? 'importance_score DESC, collected_at DESC' : 'collected_at DESC';
+    const order = options.sort === 'importance' ? 'information_items.importance_score DESC, information_items.collected_at DESC' : options.sort === 'personalized' ? 'personalized_score DESC, information_items.collected_at DESC' : 'information_items.collected_at DESC';
     const total = Number((db.prepare(`SELECT COUNT(*) AS count FROM information_items ${where}`).get(...params) as { count: number }).count);
-    const rows = db.prepare(`SELECT * FROM information_items ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, options.pageSize, (options.page - 1) * options.pageSize) as unknown as Record<string, unknown>[];
+    const rows = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, options.pageSize, (options.page - 1) * options.pageSize) as unknown as Record<string, unknown>[];
     return { data: rows.map(mapRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
   },
-  findById(id: string) { const row = db.prepare('SELECT * FROM information_items WHERE id = ?').get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
+  findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   markRead(id: string) { return db.prepare('UPDATE information_items SET is_read = 1, updated_at = ? WHERE id = ?').run(new Date().toISOString(), id).changes > 0; },
+  setFeedback(id: string, value: FeedbackValue) {
+    if (!db.prepare('SELECT id FROM information_items WHERE id = ?').get(id)) return undefined;
+    const timestamp = new Date().toISOString();
+    db.prepare('INSERT INTO information_feedback (item_id, value, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(item_id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').run(id, value, timestamp, timestamp);
+    return this.findById(id);
+  },
   event(id: string) {
     const item = this.findById(id); if (!item) return undefined;
     const sources = (db.prepare('SELECT * FROM information_items WHERE event_key = ? ORDER BY collected_at DESC').all(item.eventKey) as unknown as Record<string, unknown>[]).map(mapRow);

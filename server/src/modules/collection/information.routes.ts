@@ -5,7 +5,7 @@ export const informationRouter = Router();
 informationRouter.get('/', (request, response) => {
   const page = Math.max(1, Number(request.query.page) || 1);
   const pageSize = Math.min(50, Math.max(1, Number(request.query.pageSize) || 10));
-  const sort = request.query.sort === 'importance' ? 'importance' : 'latest';
+  const sort = request.query.sort === 'importance' || request.query.sort === 'personalized' ? request.query.sort : 'latest';
   const unread = request.query.unread === 'true';
   const source = typeof request.query.source === 'string' ? request.query.source : undefined;
   const minImportance = request.query.minImportance === undefined ? undefined : Number(request.query.minImportance);
@@ -19,6 +19,12 @@ informationRouter.get('/:id', (request, response) => {
   return response.json({ data: item });
 });
 informationRouter.patch('/:id/read', (request, response) => informationStore.markRead(request.params.id) ? response.json({ data: { id: request.params.id, isRead: true } }) : response.status(404).json({ error: '信息不存在' }));
+informationRouter.put('/:id/feedback', (request, response) => {
+  const value = request.body?.value;
+  if (!['helpful', 'irrelevant', 'duplicate'].includes(value)) return response.status(400).json({ error: '反馈参数无效' });
+  const item = informationStore.setFeedback(request.params.id, value);
+  return item ? response.json({ data: item }) : response.status(404).json({ error: '信息不存在' });
+});
 informationRouter.get('/:id/event', (request, response) => {
   const event = informationStore.event(request.params.id);
   return event ? response.json({ data: event }) : response.status(404).json({ error: '信息不存在' });

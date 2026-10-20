@@ -24,6 +24,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS information_snapshot_item_idx ON information_snapshots(item_id, captured_at);
   CREATE TABLE IF NOT EXISTS information_changes (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, change_type TEXT NOT NULL, summary TEXT NOT NULL, created_at TEXT NOT NULL);
   CREATE INDEX IF NOT EXISTS information_change_item_idx ON information_changes(item_id, created_at);
+  CREATE TABLE IF NOT EXISTS information_feedback (item_id TEXT PRIMARY KEY REFERENCES information_items(id) ON DELETE CASCADE, value TEXT NOT NULL CHECK(value IN ('helpful', 'irrelevant', 'duplicate')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 `);
 
 const now = () => new Date().toISOString();
