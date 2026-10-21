@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.js';
 import { db } from '../db/client.js';
 
-beforeEach(() => db.exec('DELETE FROM keywords; DELETE FROM topics;'));
+beforeEach(() => db.exec('DELETE FROM information_feedback; DELETE FROM information_changes; DELETE FROM information_snapshots; DELETE FROM information_items; DELETE FROM keywords; DELETE FROM topics;'));
 
 describe('GET /api/collect/preview', () => {
   it('collects fixture data for enabled topics and keywords', async () => {
@@ -33,5 +33,15 @@ describe('GET /api/collect/preview', () => {
     expect(first.body.persistence).toMatchObject({ saved: 1, snapshots: 1, changes: 1 });
     expect(second.body.persistence).toMatchObject({ saved: 0, snapshots: 1, changes: 0 });
     expect(changes.body.data).toHaveLength(1);
+  });
+
+  it('runs the full fixture collection pipeline with local analysis', async () => {
+    const topic = await request(app).post('/api/topics').send({ name: 'AI' });
+    await request(app).post(`/api/topics/${topic.body.data.id}/keywords`).send({ value: '人工智能' });
+    const response = await request(app).post('/api/collect/run').send({ sources: ['fixture'] });
+    expect(response.status).toBe(200);
+    expect(response.body.persistence).toMatchObject({ saved: 1, snapshots: 1, changes: 1 });
+    expect(response.body.analysis).toMatchObject({ processed: 1, fallback: 1 });
+    expect((await request(app).get('/api/information')).body.data[0].aiStatus).toBe('fallback');
   });
 });

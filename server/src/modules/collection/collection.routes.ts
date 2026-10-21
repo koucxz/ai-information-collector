@@ -4,6 +4,7 @@ import { collectTopics } from './collector.service.js';
 import { informationStore } from './information.store.js';
 import { historyStore } from './history.store.js';
 import { createSourceAdapters, sourceCatalog } from './source.registry.js';
+import { runCollection } from './collection.service.js';
 
 export const collectionRouter = Router();
 
@@ -20,4 +21,11 @@ collectionRouter.get('/preview', async (request, response) => {
 });
 
 collectionRouter.get('/sources', (_request, response) => response.json({ data: sourceCatalog }));
+
+collectionRouter.post('/run', async (request, response) => {
+  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : sourceCatalog.filter((source) => source.id !== 'fixture').map((source) => source.id);
+  if (!sources.length) return response.status(400).json({ error: '至少选择一个信息源' });
+  try { return response.json(await runCollection(sources)); }
+  catch (error) { return response.status(400).json({ error: error instanceof Error ? error.message : '采集任务失败' }); }
+});
 

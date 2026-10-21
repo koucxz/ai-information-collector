@@ -77,6 +77,7 @@ export const informationStore = {
     return { data: rows.map(mapRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
   },
   findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
+  findByResult(item: Pick<SearchResult, 'source' | 'url' | 'fingerprint'>) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.source = ? AND information_items.dedupe_key = ?`).get(item.source, dedupeKeyFor(item)) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   markRead(id: string) { return db.prepare('UPDATE information_items SET is_read = 1, updated_at = ? WHERE id = ?').run(new Date().toISOString(), id).changes > 0; },
   setFeedback(id: string, value: FeedbackValue) {
     if (!db.prepare('SELECT id FROM information_items WHERE id = ?').get(id)) return undefined;

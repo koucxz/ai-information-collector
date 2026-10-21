@@ -20,6 +20,8 @@ export type SourceAdapter = {
 export type TopicConfig = {
   id: string;
   name: string;
+  aliases?: string[];
+  excludeWords?: string[];
   enabled: boolean;
   keywords: Array<{ value: string; enabled: boolean }>;
 };
