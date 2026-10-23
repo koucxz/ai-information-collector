@@ -11,7 +11,17 @@ const envSchema = z.object({
   AI_MODEL: z.string().default('Qwen/Qwen3-8B'),
   GITHUB_TOKEN: z.string().optional(),
   COLLECTION_SCHEDULE_ENABLED: booleanString,
-  COLLECTION_CRON: z.string().default('0 */2 * * *')
+  COLLECTION_CRON: z.string().default('0 */2 * * *'),
+  DIGEST_SCHEDULE_ENABLED: booleanString,
+  DIGEST_DAILY_CRON: z.string().default('0 8 * * *'),
+  DIGEST_WEEKLY_CRON: z.string().default('0 9 * * 1'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: booleanString,
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  NOTIFY_EMAIL: z.string().optional()
 });
 
 export const env = envSchema.parse({
@@ -23,5 +33,15 @@ export const env = envSchema.parse({
   AI_MODEL: process.env.AI_MODEL,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   COLLECTION_SCHEDULE_ENABLED: process.env.COLLECTION_SCHEDULE_ENABLED,
-  COLLECTION_CRON: process.env.COLLECTION_CRON
+  COLLECTION_CRON: process.env.COLLECTION_CRON,
+  DIGEST_SCHEDULE_ENABLED: process.env.DIGEST_SCHEDULE_ENABLED,
+  DIGEST_DAILY_CRON: process.env.DIGEST_DAILY_CRON,
+  DIGEST_WEEKLY_CRON: process.env.DIGEST_WEEKLY_CRON,
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: process.env.SMTP_PORT,
+  SMTP_SECURE: process.env.SMTP_SECURE,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
+  SMTP_FROM: process.env.SMTP_FROM,
+  NOTIFY_EMAIL: process.env.NOTIFY_EMAIL
 });
