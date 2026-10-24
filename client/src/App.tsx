@@ -1,100 +1,165 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Bell, Check, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, Layers3, Pencil, Plus, Radar, RefreshCw, Search, Sparkles, ThumbsUp, Trash2, X } from 'lucide-react';
+import { io } from 'socket.io-client';
 
-const sources = ['百度', 'B 站', '微博', '知乎', '掘金', 'GitHub'];
 type ServiceStatus = 'checking' | 'online' | 'offline';
+type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
 type Keyword = { id: string; value: string; enabled: boolean };
 type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; enabled: boolean; keywords: Keyword[] };
-type TopicDraft = { name: string; aliases: string; excludeWords: string };
-type CollectionPreview = { data: Array<{ sourceName: string; title: string; summary: string; url: string }>; errors: Array<{ source: string; keyword: string; message: string }>; stats: { topics: number; keywords: number; results: number } };
-type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
-type FeedItem = { id: string; sourceName: string; source: string; title: string; summary: string; importanceScore: number; relevanceScore: number; isRead: boolean; aiStatus: string; feedback: FeedbackValue | null };
+type SourceOption = { id: string; name: string };
+type FeedItem = { id: string; sourceName: string; source: string; title: string; summary: string; url: string; collectedAt: string; importanceScore: number; relevanceScore: number; isRead: boolean; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null };
+type FeedResponse = { data: FeedItem[]; page: number; pageSize: number; total: number; totalPages: number };
+type CollectionResult = { errors: Array<{ source: string; keyword: string; message: string }>; stats: { topics: number; keywords: number; results: number }; persistence: { saved: number; duplicates: number; changes: number }; analysis: { processed: number; ai: number; fallback: number } };
+type EventDetail = { title: string; firstSeenAt: string; lastSeenAt: string; sourceCount: number; sources: FeedItem[] };
+type Digest = { title: string; total: number; unread: number; changes: number; sourceCounts: Record<string, number>; topItems: Array<{ id: string; title: string; sourceName: string; importanceScore: number; summary: string }> };
+type CollectionEvent = { status: 'started' | 'completed' | 'failed'; stats?: { results: number; saved: number; changes: number }; error?: string };
 
-const emptyDraft: TopicDraft = { name: '', aliases: '', excludeWords: '' };
 const splitInput = (value: string) => value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean);
+const formatTime = (value: string) => new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+
+async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(url, { ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers } });
+  const payload = response.status === 204 ? null : await response.json() as { error?: string };
+  if (!response.ok) throw new Error(payload?.error ?? '操作失败');
+  return payload as T;
+}
 
 function App() {
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('checking');
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [draft, setDraft] = useState<TopicDraft>(emptyDraft);
-  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
-  const [editingTopic, setEditingTopic] = useState<TopicDraft>(emptyDraft);
-  const [keywordDrafts, setKeywordDrafts] = useState<Record<string, string>>({});
-  const [error, setError] = useState('');
-  const [collection, setCollection] = useState<CollectionPreview | null>(null);
-  const [collecting, setCollecting] = useState(false);
-  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [sources, setSources] = useState<SourceOption[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [feedResponse, setFeedResponse] = useState<FeedResponse>({ data: [], page: 1, pageSize: 10, total: 0, totalPages: 0 });
+  const [page, setPage] = useState(1);
+  const [sourceFilter, setSourceFilter] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const [feedSort, setFeedSort] = useState<'latest' | 'importance' | 'personalized'>('latest');
-  const topicPanel = useRef<HTMLElement>(null);
+  const [feedSort, setFeedSort] = useState<'latest' | 'importance' | 'personalized'>('personalized');
+  const [topicName, setTopicName] = useState('');
+  const [topicAliases, setTopicAliases] = useState('');
+  const [topicExcludes, setTopicExcludes] = useState('');
+  const [keywordDrafts, setKeywordDrafts] = useState<Record<string, string>>({});
+  const [collecting, setCollecting] = useState(false);
+  const [collection, setCollection] = useState<CollectionResult | null>(null);
+  const [liveStatus, setLiveStatus] = useState('等待采集');
+  const [error, setError] = useState('');
+  const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
+  const [digest, setDigest] = useState<Digest | null>(null);
 
-  const checkHealth = async () => {
+  const loadFeed = useCallback(async () => {
+    const query = new URLSearchParams({ page: String(page), pageSize: '10', sort: feedSort, ...(unreadOnly ? { unread: 'true' } : {}), ...(sourceFilter ? { source: sourceFilter } : {}) });
+    try { setFeedResponse(await request<FeedResponse>(`/api/information?${query}`)); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : '信息流加载失败'); }
+  }, [feedSort, page, sourceFilter, unreadOnly]);
+
+  const loadTopics = useCallback(async () => {
+    try { setTopics((await request<{ data: Topic[] }>('/api/topics')).data); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : '主题加载失败'); }
+  }, []);
+
+  const checkHealth = useCallback(async () => {
     setServiceStatus('checking');
+    try { const result = await request<{ status: string }>('/api/health'); setServiceStatus(result.status === 'ok' ? 'online' : 'offline'); }
+    catch { setServiceStatus('offline'); }
+  }, []);
+
+  useEffect(() => {
+    void checkHealth(); void loadTopics();
+    void request<{ data: SourceOption[] }>('/api/collect/sources').then(({ data }) => {
+      setSources(data);
+      setSelectedSources(data.filter((source) => source.id !== 'fixture').map((source) => source.id));
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
+  }, [checkHealth, loadTopics]);
+
+  useEffect(() => { void loadFeed(); }, [loadFeed]);
+
+  useEffect(() => {
+    const socket = io();
+    socket.on('collection:status', (event: CollectionEvent) => {
+      if (event.status === 'started') setLiveStatus('正在采集');
+      if (event.status === 'failed') { setLiveStatus('采集失败'); setError(event.error ?? '采集失败'); }
+      if (event.status === 'completed') { setLiveStatus(`已更新 ${event.stats?.saved ?? 0} 条`); void loadFeed(); }
+    });
+    return () => { socket.disconnect(); };
+  }, [loadFeed]);
+
+  const enabledKeywordCount = useMemo(() => topics.reduce((count, topic) => count + topic.keywords.filter((keyword) => keyword.enabled).length, 0), [topics]);
+
+  const runCollection = async () => {
+    if (!selectedSources.length) return setError('至少选择一个信息源。');
+    setCollecting(true); setLiveStatus('正在采集');
     try {
-      const response = await fetch('/api/health');
-      if (!response.ok) throw new Error('health check failed');
-      const payload = (await response.json()) as { status?: string };
-      setServiceStatus(payload.status === 'ok' ? 'online' : 'offline');
-    } catch { setServiceStatus('offline'); }
-  };
-
-  const loadTopics = async () => {
-    try {
-      const response = await fetch('/api/topics');
-      if (!response.ok) throw new Error('加载主题失败');
-      const payload = (await response.json()) as { data: Topic[] };
-      setTopics(payload.data);
-      setError('');
-    } catch { setError('主题加载失败，请确认后端服务已启动。'); }
-  };
-  const loadFeed = async () => { try { const query = new URLSearchParams({ page: '1', pageSize: '20', sort: feedSort, ...(unreadOnly ? { unread: 'true' } : {}) }); const response = await fetch(`/api/information?${query}`); if (!response.ok) throw new Error('信息流加载失败'); const payload = await response.json() as { data: FeedItem[] }; setFeed(payload.data); } catch (caught) { setError(caught instanceof Error ? caught.message : '信息流加载失败'); } };
-
-  useEffect(() => { void checkHealth(); void loadTopics(); void loadFeed(); }, [feedSort, unreadOnly]);
-
-  const request = async (url: string, options: RequestInit = {}) => {
-    const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
-    const payload = response.status === 204 ? null : await response.json() as { error?: string; data?: unknown };
-    if (!response.ok) throw new Error(payload?.error ?? '操作失败');
-    return payload;
+      const result = await request<CollectionResult>('/api/collect/run', { method: 'POST', body: JSON.stringify({ sources: selectedSources }) });
+      setCollection(result); setLiveStatus(`已更新 ${result.persistence.saved} 条`); setPage(1); await loadFeed();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '采集失败'); setLiveStatus('采集失败'); }
+    finally { setCollecting(false); }
   };
 
   const createTopic = async (event: FormEvent) => {
     event.preventDefault();
-    if (!draft.name.trim()) return setError('请填写主题名称。');
-    try { await request('/api/topics', { method: 'POST', body: JSON.stringify({ name: draft.name, aliases: splitInput(draft.aliases), excludeWords: splitInput(draft.excludeWords) }) }); setDraft(emptyDraft); await loadTopics(); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : '主题创建失败'); }
+    if (!topicName.trim()) return;
+    try {
+      await request('/api/topics', { method: 'POST', body: JSON.stringify({ name: topicName, aliases: splitInput(topicAliases), excludeWords: splitInput(topicExcludes) }) });
+      setTopicName(''); setTopicAliases(''); setTopicExcludes(''); await loadTopics();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '主题创建失败'); }
   };
 
-  const updateTopic = async (topicId: string) => {
-    try { await request(`/api/topics/${topicId}`, { method: 'PATCH', body: JSON.stringify({ name: editingTopic.name, aliases: splitInput(editingTopic.aliases), excludeWords: splitInput(editingTopic.excludeWords) }) }); setEditingTopicId(null); await loadTopics(); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : '主题更新失败'); }
-  };
-
-  const toggleTopic = async (topic: Topic) => { try { await request(`/api/topics/${topic.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !topic.enabled }) }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '主题状态更新失败'); } };
-  const deleteTopic = async (topic: Topic) => { if (!window.confirm(`删除“${topic.name}”？其关键词也会被删除。`)) return; try { await request(`/api/topics/${topic.id}`, { method: 'DELETE' }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '主题删除失败'); } };
-  const addKeyword = async (topicId: string) => { const value = keywordDrafts[topicId]?.trim(); if (!value) return; try { await request(`/api/topics/${topicId}/keywords`, { method: 'POST', body: JSON.stringify({ value }) }); setKeywordDrafts((current) => ({ ...current, [topicId]: '' })); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词添加失败'); } };
-  const previewCollection = async () => { setCollecting(true); try { const response = await fetch('/api/collect/preview?source=fixture&persist=true'); const payload = await response.json() as CollectionPreview & { error?: string }; if (!response.ok) throw new Error(payload.error ?? '采集失败'); setCollection(payload); setError(''); await loadFeed(); } catch (caught) { setError(caught instanceof Error ? caught.message : '采集失败'); } finally { setCollecting(false); } };
-  const markRead = async (id: string) => { try { await fetch(`/api/information/${id}/read`, { method: 'PATCH' }); await loadFeed(); } catch (caught) { setError(caught instanceof Error ? caught.message : '标记已读失败'); } };
-  const sendFeedback = async (id: string, value: FeedbackValue) => { try { await request(`/api/information/${id}/feedback`, { method: 'PUT', body: JSON.stringify({ value }) }); await loadFeed(); } catch (caught) { setError(caught instanceof Error ? caught.message : '反馈提交失败'); } };
-  const updateKeyword = async (topicId: string, keyword: Keyword, value: string) => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'PATCH', body: JSON.stringify({ value }) }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词更新失败'); } };
-  const toggleKeyword = async (topicId: string, keyword: Keyword) => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !keyword.enabled }) }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词状态更新失败'); } };
-  const deleteKeyword = async (topicId: string, keyword: Keyword) => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'DELETE' }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词删除失败'); } };
-
-  const statusLabel = { checking: '正在连接服务', online: '服务已连接', offline: '服务未连接' }[serviceStatus];
-  const enabledTopics = topics.filter((topic) => topic.enabled).length;
+  const patchTopic = async (topic: Topic, update: Partial<Topic>) => { try { await request(`/api/topics/${topic.id}`, { method: 'PATCH', body: JSON.stringify(update) }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '主题更新失败'); } };
+  const editTopic = async (topic: Topic) => { const name = window.prompt('主题名称', topic.name)?.trim(); if (name && name !== topic.name) await patchTopic(topic, { name }); };
+  const deleteTopic = async (topic: Topic) => { if (!window.confirm(`删除“${topic.name}”及其关键词？`)) return; try { await request(`/api/topics/${topic.id}`, { method: 'DELETE' }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '主题删除失败'); } };
+  const addKeyword = async (topic: Topic) => { const value = keywordDrafts[topic.id]?.trim(); if (!value) return; try { await request(`/api/topics/${topic.id}/keywords`, { method: 'POST', body: JSON.stringify({ value }) }); setKeywordDrafts((current) => ({ ...current, [topic.id]: '' })); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词添加失败'); } };
+  const patchKeyword = async (topic: Topic, keyword: Keyword, update: Partial<Keyword>) => { try { await request(`/api/topics/${topic.id}/keywords/${keyword.id}`, { method: 'PATCH', body: JSON.stringify(update) }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词更新失败'); } };
+  const editKeyword = async (topic: Topic, keyword: Keyword) => { const value = window.prompt('关键词', keyword.value)?.trim(); if (value && value !== keyword.value) await patchKeyword(topic, keyword, { value }); };
+  const deleteKeyword = async (topic: Topic, keyword: Keyword) => { try { await request(`/api/topics/${topic.id}/keywords/${keyword.id}`, { method: 'DELETE' }); await loadTopics(); } catch (caught) { setError(caught instanceof Error ? caught.message : '关键词删除失败'); } };
+  const markRead = async (item: FeedItem) => { try { await request(`/api/information/${item.id}/read`, { method: 'PATCH' }); await loadFeed(); } catch (caught) { setError(caught instanceof Error ? caught.message : '标记已读失败'); } };
+  const sendFeedback = async (item: FeedItem, value: FeedbackValue) => { try { await request(`/api/information/${item.id}/feedback`, { method: 'PUT', body: JSON.stringify({ value }) }); await loadFeed(); } catch (caught) { setError(caught instanceof Error ? caught.message : '反馈提交失败'); } };
+  const analyze = async (item: FeedItem) => { try { await request(`/api/information/${item.id}/analyze`, { method: 'POST' }); await loadFeed(); } catch (caught) { setError(caught instanceof Error ? caught.message : '分析失败'); } };
+  const openEvent = async (item: FeedItem) => { try { setEventDetail((await request<{ data: EventDetail }>(`/api/information/${item.id}/event`)).data); } catch (caught) { setError(caught instanceof Error ? caught.message : '事件详情加载失败'); } };
+  const loadDigest = async () => { try { setDigest((await request<{ data: Digest }>('/api/notifications/digest?period=daily')).data); } catch (caught) { setError(caught instanceof Error ? caught.message : '摘要加载失败'); } };
 
   return (
-    <main className="shell">
-      <header className="topbar"><div className="brand"><span className="brand-mark">S</span><div><strong>SignalDock</strong><span>AI 信息雷达</span></div></div><div className="status-group"><span className={`status status-${serviceStatus}`}><i /> {statusLabel}</span>{serviceStatus === 'offline' && <button className="retry-button" onClick={() => { void checkHealth(); void loadTopics(); }}>重新检查</button>}</div></header>
-      <section className="hero"><p className="eyebrow">PERSONAL INFORMATION RADAR</p><h1>把真正重要的信息，<em>留在视线里。</em></h1><p className="intro">围绕关注主题持续收集国内信息，合并重复内容，识别变化，再交给 AI 做初步整理。</p><div className="hero-actions"><button className="primary" onClick={() => topicPanel.current?.scrollIntoView({ behavior: 'smooth' })}>添加关注主题</button><button className="secondary" onClick={() => void previewCollection()} disabled={collecting}>{collecting ? '采集中…' : '试采一轮'}</button><button className="secondary" onClick={() => document.querySelector('.roadmap-panel')?.scrollIntoView({ behavior: 'smooth' })}>查看开发路线</button></div></section>
-      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError('')}>关闭</button></div>}
-      {collection && <section className="panel collection-panel"><div className="panel-heading"><span>最近一次采集</span><span className="muted">{collection.stats.results} 条结果 · {collection.stats.keywords} 个关键词</span></div>{collection.errors.length > 0 && <div className="collection-errors">{collection.errors.map((item) => <span key={`${item.source}-${item.keyword}`}>{item.source} / {item.keyword}：{item.message}</span>)}</div>}<div className="collection-results">{collection.data.length === 0 ? <p className="muted">没有匹配结果，先新增一个启用中的关键词。</p> : collection.data.map((item) => <a className="collection-item" href={item.url} target="_blank" rel="noreferrer" key={item.url}><span>{item.sourceName}</span><strong>{item.title}</strong><small>{item.summary}</small></a>)}</div></section>}
-      <section className="panel feed-panel"><div className="panel-heading"><span>信息流</span><div className="feed-controls"><button className={unreadOnly ? 'control-active' : ''} onClick={() => setUnreadOnly(!unreadOnly)}>仅看未读</button><button className={feedSort === 'latest' ? 'control-active' : ''} onClick={() => setFeedSort('latest')}>最新</button><button className={feedSort === 'importance' ? 'control-active' : ''} onClick={() => setFeedSort('importance')}>重要</button><button className={feedSort === 'personalized' ? 'control-active' : ''} onClick={() => setFeedSort('personalized')}>为我排序</button></div></div><div className="feed-list">{feed.length === 0 ? <p className="muted">还没有已保存的信息，点击“试采一轮”开始。</p> : feed.map((item) => <article className={`feed-item ${item.isRead ? 'feed-read' : ''}`} key={item.id}><div><span className="feed-source">{item.sourceName} · 相关性 {Math.round(item.relevanceScore * 100)}%</span><h3>{item.title}</h3><p>{item.summary || '暂无摘要'}</p><div className="feedback-actions"><button className={item.feedback === 'helpful' ? 'control-active' : ''} onClick={() => void sendFeedback(item.id, 'helpful')}>有用</button><button className={item.feedback === 'irrelevant' ? 'control-active' : ''} onClick={() => void sendFeedback(item.id, 'irrelevant')}>无关</button><button className={item.feedback === 'duplicate' ? 'control-active' : ''} onClick={() => void sendFeedback(item.id, 'duplicate')}>重复</button></div></div><div className="feed-meta"><span>{item.aiStatus === 'fallback' ? '本地分析' : item.aiStatus === 'ai' ? 'AI 分析' : '待分析'}</span>{!item.isRead && <button onClick={() => void markRead(item.id)}>标为已读</button>}</div></article>)}</div></section>
-      <section className="overview-grid" ref={topicPanel}>
-        <article className="panel focus-panel"><div className="panel-heading"><span>当前关注</span><b>{enabledTopics} 个启用主题</b></div><form className="topic-form" onSubmit={(event) => void createTopic(event)}><input placeholder="主题名称，例如：人工智能" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /><input placeholder="关键词，用逗号分隔" value={draft.aliases} onChange={(event) => setDraft({ ...draft, aliases: event.target.value })} /><input placeholder="排除词，用逗号分隔（可选）" value={draft.excludeWords} onChange={(event) => setDraft({ ...draft, excludeWords: event.target.value })} /><button className="primary" type="submit">新增主题</button></form>{topics.length === 0 && <div className="empty-state"><span className="empty-icon">＋</span><p>还没有关注主题</p><small>添加一个主题，开始收集信息</small></div>}{topics.map((topic) => <article className={`topic-card ${topic.enabled ? '' : 'topic-disabled'}`} key={topic.id}>{editingTopicId === topic.id ? <div className="topic-edit"><input value={editingTopic.name} onChange={(event) => setEditingTopic({ ...editingTopic, name: event.target.value })} /><input value={editingTopic.aliases} onChange={(event) => setEditingTopic({ ...editingTopic, aliases: event.target.value })} /><input value={editingTopic.excludeWords} onChange={(event) => setEditingTopic({ ...editingTopic, excludeWords: event.target.value })} /><button onClick={() => void updateTopic(topic.id)}>保存</button><button onClick={() => setEditingTopicId(null)}>取消</button></div> : <><div className="topic-title"><strong>{topic.name}</strong><span className={topic.enabled ? 'enabled-badge' : 'disabled-badge'}>{topic.enabled ? '启用' : '暂停'}</span><span className="topic-actions"><button onClick={() => { setEditingTopicId(topic.id); setEditingTopic({ name: topic.name, aliases: topic.aliases.join('，'), excludeWords: topic.excludeWords.join('，') }); }}>编辑</button><button onClick={() => void toggleTopic(topic)}>{topic.enabled ? '暂停' : '启用'}</button><button onClick={() => void deleteTopic(topic)}>删除</button></span></div><div className="topic-meta">别名：{topic.aliases.join('、') || '无'}　排除：{topic.excludeWords.join('、') || '无'}</div><div className="keyword-list">{topic.keywords.map((keyword) => <div className={`keyword-row ${keyword.enabled ? '' : 'keyword-disabled'}`} key={keyword.id}><input defaultValue={keyword.value} onBlur={(event) => { if (event.target.value.trim() && event.target.value.trim() !== keyword.value) void updateKeyword(topic.id, keyword, event.target.value.trim()); }} /><button onClick={() => void toggleKeyword(topic.id, keyword)}>{keyword.enabled ? '暂停' : '启用'}</button><button onClick={() => void deleteKeyword(topic.id, keyword)}>删除</button></div>)}<div className="keyword-add"><input placeholder="新增关键词" value={keywordDrafts[topic.id] ?? ''} onChange={(event) => setKeywordDrafts({ ...keywordDrafts, [topic.id]: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addKeyword(topic.id); } }} /><button onClick={() => void addKeyword(topic.id)}>添加关键词</button></div></div></>}</article>)}</article>
-        <article className="panel stats-panel"><div className="panel-heading"><span>信息概览</span><span className="muted">今天</span></div><div className="stats"><div><strong>0</strong><span>新信息</span></div><div><strong>{topics.reduce((count, topic) => count + topic.keywords.filter((keyword) => keyword.enabled).length, 0)}</strong><span>启用关键词</span></div><div><strong>{topics.length}</strong><span>来源主题</span></div></div><div className="source-list">{sources.map((source) => <span key={source}>{source}</span>)}</div></article>
+    <main className="app-shell">
+      <header className="app-header">
+        <div className="brand"><span className="brand-mark"><Radar size={19} /></span><div><strong>SignalDock</strong><span>个人信息雷达</span></div></div>
+        <div className="header-actions"><span className={`service-status ${serviceStatus}`}><i />{serviceStatus === 'online' ? '服务正常' : serviceStatus === 'checking' ? '连接中' : '服务离线'}</span><button className="icon-button" title="重新检查服务" onClick={() => void checkHealth()}><RefreshCw size={16} /></button><button className="primary-button" title="立即采集" onClick={() => void runCollection()} disabled={collecting}><RefreshCw size={16} className={collecting ? 'spin' : ''} />{collecting ? '采集中' : '立即采集'}</button></div>
+      </header>
+
+      {error && <div className="alert" role="alert"><span>{error}</span><button title="关闭" onClick={() => setError('')}><X size={16} /></button></div>}
+
+      <section className="dashboard-summary">
+        <div><span>信息总数</span><strong>{feedResponse.total}</strong></div><div><span>启用关键词</span><strong>{enabledKeywordCount}</strong></div><div><span>已选来源</span><strong>{selectedSources.length}</strong></div><div><span>运行状态</span><strong className="summary-status">{liveStatus}</strong></div>
       </section>
-      <section className="panel roadmap-panel"><div className="panel-heading"><span>开发路线</span><span className="muted">第一版</span></div><div className="roadmap"><div className="roadmap-item active"><i />关注主题和关键词</div><div className="roadmap-item"><i />国内信息源采集</div><div className="roadmap-item"><i />去重、合并和变化检测</div><div className="roadmap-item"><i />AI 分析和信息流</div></div></section>
+
+      <section className="workspace">
+        <div className="content-column">
+          <div className="section-heading"><div><h1>信息流</h1><p>按来源聚合、分析并持续更新</p></div><button className="secondary-button" title="查看今日摘要" onClick={() => void loadDigest()}><Bell size={15} />今日摘要</button></div>
+          <div className="toolbar">
+            <label><Search size={15} /><select value={sourceFilter} onChange={(event) => { setSourceFilter(event.target.value); setPage(1); }}><option value="">全部来源</option>{sources.filter((source) => source.id !== 'fixture').map((source) => <option value={source.id} key={source.id}>{source.name}</option>)}</select></label>
+            <select value={feedSort} onChange={(event) => { setFeedSort(event.target.value as typeof feedSort); setPage(1); }}><option value="personalized">为我排序</option><option value="latest">最新优先</option><option value="importance">重要优先</option></select>
+            <label className="toggle"><input type="checkbox" checked={unreadOnly} onChange={(event) => { setUnreadOnly(event.target.checked); setPage(1); }} /><span />仅看未读</label>
+          </div>
+
+          <div className="feed-list">
+            {feedResponse.data.length === 0 && <div className="empty-state"><Radar size={30} /><strong>还没有符合条件的信息</strong><span>添加关注主题并运行一次采集</span></div>}
+            {feedResponse.data.map((item) => <article className={`feed-row ${item.isRead ? 'read' : ''}`} key={item.id}>
+              <div className="feed-main"><div className="feed-kicker"><span>{item.sourceName}</span><span>{formatTime(item.collectedAt)}</span><span>相关 {Math.round(item.relevanceScore * 100)}%</span><span>重要 {Math.round(item.importanceScore * 100)}%</span></div><a href={item.url || undefined} target="_blank" rel="noreferrer"><h2>{item.title}</h2></a><p>{item.analysisSummary || item.summary || '暂无摘要'}</p><div className="feed-actions"><button className={item.feedback === 'helpful' ? 'active' : ''} onClick={() => void sendFeedback(item, 'helpful')}><ThumbsUp size={14} />有用</button><button className={item.feedback === 'irrelevant' ? 'active' : ''} onClick={() => void sendFeedback(item, 'irrelevant')}><EyeOff size={14} />无关</button><button className={item.feedback === 'duplicate' ? 'active' : ''} onClick={() => void sendFeedback(item, 'duplicate')}><Copy size={14} />重复</button><button onClick={() => void openEvent(item)}><Layers3 size={14} />事件来源</button></div></div>
+              <div className="row-tools"><button title="重新分析" onClick={() => void analyze(item)}><Sparkles size={16} /></button>{!item.isRead && <button title="标为已读" onClick={() => void markRead(item)}><Check size={16} /></button>}</div>
+            </article>)}
+          </div>
+          {feedResponse.totalPages > 1 && <div className="pagination"><button title="上一页" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /></button><span>{page} / {feedResponse.totalPages}</span><button title="下一页" disabled={page >= feedResponse.totalPages} onClick={() => setPage((value) => value + 1)}><ChevronRight size={16} /></button></div>}
+        </div>
+
+        <aside className="side-column">
+          <section className="side-section"><div className="side-heading"><h2>采集来源</h2><span>{selectedSources.length}/{sources.length}</span></div><div className="source-options">{sources.map((source) => <label key={source.id}><input type="checkbox" checked={selectedSources.includes(source.id)} onChange={(event) => setSelectedSources((current) => event.target.checked ? [...current, source.id] : current.filter((id) => id !== source.id))} /><span>{source.name}</span></label>)}</div>{collection && <div className="run-result"><strong>上次采集</strong><span>发现 {collection.stats.results} 条，新增 {collection.persistence.saved} 条，变化 {collection.persistence.changes} 条</span>{collection.errors.length > 0 && <small>{collection.errors.length} 个来源请求失败，可稍后重试</small>}</div>}</section>
+
+          <section className="side-section"><div className="side-heading"><h2>关注主题</h2><span>{topics.filter((topic) => topic.enabled).length} 个启用</span></div><form className="topic-create" onSubmit={(event) => void createTopic(event)}><input value={topicName} onChange={(event) => setTopicName(event.target.value)} placeholder="主题名称" /><input value={topicAliases} onChange={(event) => setTopicAliases(event.target.value)} placeholder="别名，逗号分隔" /><input value={topicExcludes} onChange={(event) => setTopicExcludes(event.target.value)} placeholder="排除词，可选" /><button className="secondary-button" type="submit"><Plus size={15} />新增主题</button></form>
+            <div className="topic-list">{topics.length === 0 && <p className="side-empty">尚未添加主题</p>}{topics.map((topic) => <div className={`topic-item ${topic.enabled ? '' : 'disabled'}`} key={topic.id}><div className="topic-line"><button className="topic-toggle" title={topic.enabled ? '暂停主题' : '启用主题'} onClick={() => void patchTopic(topic, { enabled: !topic.enabled })}><span /></button><strong>{topic.name}</strong><div className="topic-tools"><button title="编辑主题" onClick={() => void editTopic(topic)}><Pencil size={13} /></button><button title="删除主题" onClick={() => void deleteTopic(topic)}><Trash2 size={13} /></button></div></div>{(topic.aliases.length > 0 || topic.excludeWords.length > 0) && <p className="topic-meta">{topic.aliases.length > 0 ? `别名：${topic.aliases.join('、')}` : ''}{topic.excludeWords.length > 0 ? ` · 排除：${topic.excludeWords.join('、')}` : ''}</p>}<div className="keyword-list">{topic.keywords.map((keyword) => <span className={keyword.enabled ? '' : 'disabled'} key={keyword.id}>{keyword.value}<button title="编辑关键词" onClick={() => void editKeyword(topic, keyword)}><Pencil size={11} /></button><button title={keyword.enabled ? '暂停关键词' : '启用关键词'} onClick={() => void patchKeyword(topic, keyword, { enabled: !keyword.enabled })}>{keyword.enabled ? <Eye size={11} /> : <EyeOff size={11} />}</button><button title="删除关键词" onClick={() => void deleteKeyword(topic, keyword)}><X size={11} /></button></span>)}<div className="keyword-add"><input value={keywordDrafts[topic.id] ?? ''} onChange={(event) => setKeywordDrafts((current) => ({ ...current, [topic.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addKeyword(topic); } }} placeholder="新增关键词" /><button title="添加关键词" onClick={() => void addKeyword(topic)}><Plus size={13} /></button></div></div></div>)}</div>
+          </section>
+        </aside>
+      </section>
+
+      {eventDetail && <div className="modal-backdrop" onMouseDown={() => setEventDetail(null)}><section className="modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-heading"><div><span>{eventDetail.sourceCount} 个来源</span><h2>{eventDetail.title}</h2></div><button title="关闭" onClick={() => setEventDetail(null)}><X size={18} /></button></div><p className="modal-period">首次发现 {formatTime(eventDetail.firstSeenAt)} · 最近更新 {formatTime(eventDetail.lastSeenAt)}</p><div className="modal-list">{eventDetail.sources.map((source) => <a href={source.url} target="_blank" rel="noreferrer" key={source.id}><span>{source.sourceName}</span><strong>{source.title}</strong></a>)}</div></section></div>}
+      {digest && <div className="modal-backdrop" onMouseDown={() => setDigest(null)}><section className="modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-heading"><div><span>变化 {digest.changes} 条 · 未读 {digest.unread} 条</span><h2>{digest.title}</h2></div><button title="关闭" onClick={() => setDigest(null)}><X size={18} /></button></div><div className="digest-sources">{Object.entries(digest.sourceCounts).map(([source, count]) => <span key={source}>{source} {count}</span>)}</div><div className="modal-list">{digest.topItems.length === 0 ? <p className="side-empty">今天还没有新信息</p> : digest.topItems.map((item) => <div key={item.id}><span>{item.sourceName} · 重要 {Math.round(item.importanceScore * 100)}%</span><strong>{item.title}</strong><p>{item.summary}</p></div>)}</div></section></div>}
     </main>
   );
 }

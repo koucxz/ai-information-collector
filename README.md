@@ -1,53 +1,41 @@
 # SignalDock
 
-![状态](https://img.shields.io/badge/status-开发中-orange)
+![状态](https://img.shields.io/badge/status-可用-16a34a)
 ![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-3178c6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=111827)
 ![许可证](https://img.shields.io/badge/license-MIT-22c55e)
 
-一个面向个人使用的国内信息收集与持续监测平台。
-
-SignalDock 按照用户设置的关注主题，从百度、B 站、微博、知乎、掘金和 GitHub 收集公开信息，完成去重、事件合并、变化检测和 AI 摘要，并提供可追溯的信息流。
+SignalDock 是一个面向个人使用的信息收集与持续监测平台。设置关注主题后，它会从常用信息平台定时收集公开内容，合并同一事件，识别内容变化，再通过 AI 或本地规则完成初步筛选。
 
 ## 功能特性
 
-- 关注主题、关键词、别名和排除词管理
-- 主题和关键词的新增、编辑、启停与删除
-- 本地 fixture 采集预览和百度公开搜索适配器
-- 采集结果保存、来源保留和基础事件合并
-- 历史快照、首次发现和内容更新检测
-- AI 相关性、重要程度和摘要分析，无 Key 时自动 fallback
-- 信息流筛选、排序、分页、未读状态和事件来源查看
-- 国内主要信息平台聚合
-- GitHub 项目、Release 和 Issue 动态收集
-- URL、标题和内容指纹去重
-- 同一事件的多来源合并
-- 历史快照和新内容、内容更新检测
-- AI 相关性判断、重要程度分类和摘要生成
-- 来源、时间、相关性和重要程度筛选
-- 未读状态、历史回看和用户反馈
-- 前后端健康检查和本地服务连接状态
-- 可选的实时推送、邮件提醒和周期性摘要
+- 管理关注主题、关键词、别名和排除词
+- 聚合百度、B 站、微博、知乎、掘金和 GitHub 公开信息
+- 清理 URL 跟踪参数，按内容指纹去重并合并同一事件
+- 保存历史快照，识别首次发现和内容更新
+- 通过 OpenAI 兼容接口生成摘要、相关性和重要度评分
+- 无 API Key 时自动使用本地规则完成分析
+- 按来源、未读、相关性和重要程度筛选与排序
+- 根据“有用、无关、重复”反馈调整个性化排序
+- 支持定时采集、Socket.io 实时状态和每日/每周邮件摘要
 
 ## 工作流程
 
 ```mermaid
 flowchart LR
-    A[关注主题] --> B[定时采集]
-    B --> C[多源汇总]
-    C --> D[去重合并]
-    D --> E[变化检测]
-    E --> F[AI 摘要]
-    F --> G[信息流]
-    G -. 反馈调整 .-> A
+    A[关注主题] --> B[多源采集]
+    B --> C[去重与变化检测]
+    C --> D[AI 分析]
+    D --> E[个人信息流]
+    E -. 使用反馈 .-> D
 
-    classDef first fill:#eef2ff,stroke:#6366f1,stroke-width:2px,color:#172554;
-    classDef middle fill:#ecfeff,stroke:#0891b2,stroke-width:1.5px,color:#164e63;
-    classDef last fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#713f12;
-    class A first;
-    class B,C,D,E middle;
-    class F,G last;
+    classDef input fill:#ecfdf5,stroke:#16a34a,color:#14532d;
+    classDef process fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
+    classDef output fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+    class A input;
+    class B,C,D process;
+    class E output;
 ```
 
 ## 信息来源
@@ -60,12 +48,10 @@ flowchart LR
 - GitHub
 - 本地测试数据
 
-各来源通过独立适配器接入，统一转换为内部信息结构。单个来源不可用时，不影响其他来源继续采集。
-
 ## 技术栈
 
 - **后端：** Node.js、TypeScript、Express 5
-- **前端：** React 19、Vite、Tailwind CSS
+- **前端：** React 19、Vite、Socket.io Client、Lucide
 - **数据库：** SQLite（Node.js 内置 `node:sqlite`）
 - **AI：** OpenAI 兼容接口，默认使用硅基流动
 - **定时任务：** node-cron
@@ -82,7 +68,17 @@ flowchart LR
 
 ### 安装和启动
 
-项目当前处于开发阶段，基础前后端工程已经可以启动，分别在两个终端运行：
+克隆项目并安装依赖：
+
+```powershell
+git clone https://github.com/koucxz/ai-information-collector.git
+cd ai-information-collector
+Copy-Item .env.example server/.env
+cd server; npm install
+cd ../client; npm install
+```
+
+分别启动后端和前端：
 
 ```powershell
 cd server
@@ -96,46 +92,59 @@ npm install
 npm run dev
 ```
 
-### 配置环境变量
+浏览器访问 `http://localhost:5173`。不配置外部密钥也可以使用本地测试数据和本地分析规则。
 
-复制环境变量模板：
+### 环境变量
 
-```powershell
-Copy-Item .env.example .env
-```
-
-常用配置：
+常用配置如下，完整配置见 [.env.example](.env.example)：
 
 ```env
 AI_BASE_URL=https://api.siliconflow.cn/v1
 AI_API_KEY=
 AI_MODEL=Qwen/Qwen3-8B
 GITHUB_TOKEN=
+COLLECTION_SCHEDULE_ENABLED=false
+COLLECTION_CRON=0 */2 * * *
 ```
 
-`.env` 只用于本地配置，不要提交到 Git。
+开启定时采集或邮件摘要前，请先在 `.env` 中补全相应配置。
 
-## 开发路线
+## Docker
+
+```powershell
+docker compose up --build -d
+```
+
+启动后访问 `http://localhost:8080`，SQLite 数据保存在 Docker volume 中。
+
+## 常用接口
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/health` | 服务状态 |
+| `GET /api/topics` | 关注主题 |
+| `GET /api/collect/sources` | 可用信息源 |
+| `POST /api/collect/run` | 执行完整采集流程 |
+| `GET /api/information` | 信息流与筛选 |
+| `PUT /api/information/:id/feedback` | 提交使用反馈 |
+| `GET /api/notifications/digest` | 预览周期摘要 |
+
+## TODO
 
 - [x] 初始化 Express 和 React 应用
 - [x] 增加健康检查、开发环境代理、CORS 和基础限流
 - [x] 实现关注主题和关键词管理
 - [x] 建立 SQLite 数据模型和本地持久化
-- [x] 建立统一采集结果结构和本地 fixture 适配器
-- [x] 接入百度公开搜索预览适配器
-- [x] 保存采集结果并按 URL/指纹去重
-- [x] 为相同事件保留多来源记录
-- [ ] 接入 B 站、微博、知乎和掘金
-- [ ] 实现 URL、内容去重和事件合并
+- [x] 接入百度、B 站、微博、知乎、掘金和 GitHub
+- [x] 完成 URL、内容去重和事件合并
 - [x] 增加历史快照和变化检测
-- [x] 增加 AI 结构化分析和无密钥 fallback
+- [x] 增加 AI 结构化分析和无密钥降级
 - [x] 完成信息流、筛选、排序、分页和未读状态
-- [ ] 接入 GitHub 项目、Release 和 Issue
-- [ ] 增加 AI 结构化分析和无密钥降级
-- [ ] 完成信息流、筛选、排序、分页和未读状态
-- [ ] 增加用户反馈和个性化排序
-- [ ] 增加定时采集、实时推送、邮件通知和变化摘要
-- [ ] 增加 CI、安全检查和部署配置
+- [x] 增加用户反馈和个性化排序
+- [x] 增加定时采集、实时推送、邮件通知和变化摘要
+- [x] 增加 CI、安全检查和 Docker 部署配置
+- [ ] 根据实际使用情况持续调整各平台解析规则
+- [ ] 增加信息导出和备份恢复
 
 ## 贡献
 

@@ -1,0 +1,40 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      PORT: 3001
+      CLIENT_URL: http://localhost:8080
+      DATABASE_URL: file:/data/signaldock.db
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.siliconflow.cn/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-Qwen/Qwen3-8B}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      COLLECTION_SCHEDULE_ENABLED: ${COLLECTION_SCHEDULE_ENABLED:-false}
+      COLLECTION_CRON: "${COLLECTION_CRON:-0 */2 * * *}"
+      DIGEST_SCHEDULE_ENABLED: ${DIGEST_SCHEDULE_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      NOTIFY_EMAIL: ${NOTIFY_EMAIL:-}
+    volumes:
+      - signaldock-data:/data
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  signaldock-data:
+
