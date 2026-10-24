@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BaiduAdapter, parseBaiduResults } from '../modules/collection/baidu.adapter.js';
+import { BaiduAdapter, parseBaiduHeadings, parseBaiduResults } from '../modules/collection/baidu.adapter.js';
 import { FixtureAdapter } from '../modules/collection/fixture.adapter.js';
 
 describe('collection adapters', () => {
@@ -13,8 +13,10 @@ describe('collection adapters', () => {
   });
 
   it('parses Baidu result headings', () => {
-    const results = parseBaiduResults('<h3><a href="https://example.com/a">AI &amp; 工程</a></h3>', 'AI');
+    const html = '<h3 class="t"><a class="link" href="https://example.com/a"><div><p><span>AI &amp; 工程</span></p></div></a></h3>';
+    const results = parseBaiduResults(html, 'AI');
     expect(results[0]).toMatchObject({ source: 'baidu', title: 'AI & 工程', url: 'https://example.com/a' });
+    expect(parseBaiduHeadings(html)).toEqual([{ title: 'AI & 工程', url: 'https://example.com/a' }]);
   });
 
   it('records timeout through AbortController', async () => {

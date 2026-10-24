@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { BilibiliAdapter, parseBilibiliResults, parsePublicHtmlResults, PublicHtmlAdapter } from '../modules/collection/public-source.adapter.js';
+import { BaiduIndexedAdapter, BilibiliAdapter, JuejinAdapter, parseBilibiliHtmlResults, parseBilibiliResults, parseJuejinResults, parsePublicHtmlResults, PublicHtmlAdapter } from '../modules/collection/public-source.adapter.js';
 import { createSourceAdapters } from '../modules/collection/source.registry.js';
 
 describe('domestic public source adapters', () => {
   it('parses Bilibili search data', () => {
     const results = parseBilibiliResults({ data: { result: [{ title: '<em>AI</em> 工具', description: '视频介绍', arcurl: '//www.bilibili.com/video/BV1abc', pubdate: 1_700_000_000 }] } }, 'AI');
     expect(results[0]).toMatchObject({ source: 'bilibili', sourceName: 'B 站', title: 'AI 工具', url: 'https://bilibili.com/video/BV1abc' });
+  });
+
+  it('parses Bilibili search HTML and canonicalizes video links', () => {
+    const html = '<a href="//www.bilibili.com/video/BV1uNk1YxEJQ/?spm_id_from=1"><h3 title="AI 大模型教程">AI <em>大模型</em>教程</h3></a>';
+    expect(parseBilibiliHtmlResults(html, '大模型')[0]).toMatchObject({ title: 'AI 大模型教程', url: 'https://bilibili.com/video/BV1uNk1YxEJQ' });
+  });
+
+  it('parses Juejin public search data', () => {
+    const payload = { data: [{ result_type: 2, result_model: { article_id: '123', article_info: { article_id: '123', title: '大模型工程实践', brief_content: '文章摘要', ctime: '1700000000' } } }] };
+    expect(parseJuejinResults(payload, '大模型')[0]).toMatchObject({ source: 'juejin', title: '大模型工程实践', url: 'https://juejin.cn/post/123' });
   });
 
   it.each([
@@ -24,9 +34,11 @@ describe('domestic public source adapters', () => {
   });
 
   it('uses timeout-aware requests and validates the source registry', async () => {
-    const fetcher: typeof fetch = async () => new Response(JSON.stringify({ data: { result: [] } }), { status: 200 });
+    const fetcher: typeof fetch = async () => new Response('<html></html>', { status: 200 });
     await expect(new BilibiliAdapter(fetcher).search('AI')).resolves.toEqual([]);
     await expect(new PublicHtmlAdapter('juejin', async () => new Response('<html></html>')).search('AI')).resolves.toEqual([]);
+    await expect(new BaiduIndexedAdapter('zhihu', fetcher).search('AI')).resolves.toEqual([]);
+    await expect(new JuejinAdapter(async () => new Response(JSON.stringify({ data: [] }), { status: 200 })).search('AI')).resolves.toEqual([]);
     expect(createSourceAdapters(['baidu', 'weibo']).adapters).toHaveLength(2);
     expect(createSourceAdapters(['missing']).unknown).toEqual(['missing']);
   });

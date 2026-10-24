@@ -2,7 +2,7 @@ import type { SourceAdapter } from './collection.types.js';
 import { BaiduAdapter } from './baidu.adapter.js';
 import { FixtureAdapter } from './fixture.adapter.js';
 import { GitHubAdapter } from './github.adapter.js';
-import { BilibiliAdapter, PublicHtmlAdapter } from './public-source.adapter.js';
+import { BaiduIndexedAdapter, BilibiliAdapter, JuejinAdapter } from './public-source.adapter.js';
 
 export const sourceCatalog = [
   { id: 'fixture', name: '本地测试数据' },
@@ -19,9 +19,9 @@ const factories: Record<SourceId, () => SourceAdapter> = {
   fixture: () => new FixtureAdapter(),
   baidu: () => new BaiduAdapter(),
   bilibili: () => new BilibiliAdapter(),
-  weibo: () => new PublicHtmlAdapter('weibo'),
-  zhihu: () => new PublicHtmlAdapter('zhihu'),
-  juejin: () => new PublicHtmlAdapter('juejin'),
+  weibo: () => new BaiduIndexedAdapter('weibo'),
+  zhihu: () => new BaiduIndexedAdapter('zhihu'),
+  juejin: () => new JuejinAdapter(),
   github: () => new GitHubAdapter()
 };
 

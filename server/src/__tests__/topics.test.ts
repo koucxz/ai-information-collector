@@ -56,4 +56,13 @@ describe('topic and keyword management', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('主题参数无效');
   });
+
+  it('rejects empty topic and keyword updates', async () => {
+    const created = await request(app).post('/api/topics').send({ name: '空更新检查' });
+    const topicId = created.body.data.id;
+    const keyword = await request(app).post(`/api/topics/${topicId}/keywords`).send({ value: '检查词' });
+
+    expect((await request(app).patch(`/api/topics/${topicId}`).send({})).status).toBe(400);
+    expect((await request(app).patch(`/api/topics/${topicId}/keywords/${keyword.body.data.id}`).send({})).status).toBe(400);
+  });
 });
