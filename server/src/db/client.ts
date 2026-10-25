@@ -27,6 +27,15 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS information_feedback (item_id TEXT PRIMARY KEY REFERENCES information_items(id) ON DELETE CASCADE, value TEXT NOT NULL CHECK(value IN ('helpful', 'irrelevant', 'duplicate')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 `);
 
+const ensureColumn = (table: string, column: string, definition: string) => {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((item) => item.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+};
+
+ensureColumn('information_items', 'is_saved', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('information_items', 'is_archived', 'INTEGER NOT NULL DEFAULT 0');
+db.exec('CREATE INDEX IF NOT EXISTS information_saved_idx ON information_items(is_saved, is_archived, collected_at);');
+
 const now = () => new Date().toISOString();
 const parseList = (value: string) => JSON.parse(value) as string[];
 const readKeywords = (topicId: string) => db.prepare('SELECT * FROM keywords WHERE topic_id = ? ORDER BY created_at ASC').all(topicId) as unknown as KeywordRow[];

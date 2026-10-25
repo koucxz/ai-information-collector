@@ -4,8 +4,8 @@ import type { SearchResult } from './collection.types.js';
 import { normalizeUrl } from './normalize.js';
 
 export type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
-export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null; personalizedScore: number };
-export type FeedOptions = { source?: string; unread?: boolean; minImportance?: number; minRelevance?: number; sort?: 'latest' | 'importance' | 'personalized'; page: number; pageSize: number };
+export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; isSaved: boolean; isArchived: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null; personalizedScore: number };
+export type FeedOptions = { source?: string; unread?: boolean; saved?: boolean; archived?: boolean; query?: string; minImportance?: number; minRelevance?: number; sort?: 'latest' | 'importance' | 'personalized'; page: number; pageSize: number };
 
 const canonicalTitle = (title: string) => title.toLocaleLowerCase()
   .replace(/[【\[（(][^】\]）)]*[】\]）)]/g, ' ')
@@ -38,7 +38,7 @@ const resolveEventKey = (title: string) => {
   return match?.key ?? eventKeyFor(title);
 };
 export const dedupeKeyFor = (item: Pick<SearchResult, 'url' | 'fingerprint'>) => { const normalizedUrl = normalizeUrl(item.url); return normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`; };
-const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason), feedback: row.feedback ? String(row.feedback) as FeedbackValue : null, personalizedScore: Number(row.personalized_score ?? 0) });
+const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), isSaved: Boolean(row.is_saved), isArchived: Boolean(row.is_archived), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason), feedback: row.feedback ? String(row.feedback) as FeedbackValue : null, personalizedScore: Number(row.personalized_score ?? 0) });
 
 const feedbackJoin = 'LEFT JOIN information_feedback feedback_row ON feedback_row.item_id = information_items.id';
 const feedbackSelect = `information_items.*, feedback_row.value AS feedback,
@@ -68,6 +68,14 @@ export const informationStore = {
     const conditions: string[] = []; const params: Array<string | number> = [];
     if (options.source) { conditions.push('information_items.source = ?'); params.push(options.source); }
     if (options.unread) conditions.push('information_items.is_read = 0');
+    if (options.saved) conditions.push('information_items.is_saved = 1');
+    if (options.archived === false) conditions.push('information_items.is_archived = 0');
+    if (options.archived === true) conditions.push('information_items.is_archived = 1');
+    if (options.query?.trim()) {
+      conditions.push('(information_items.title LIKE ? OR information_items.summary LIKE ? OR information_items.content LIKE ? OR information_items.analysis_summary LIKE ? OR information_items.keyword LIKE ? OR information_items.source_name LIKE ?)');
+      const query = `%${options.query.trim()}%`;
+      params.push(query, query, query, query, query, query);
+    }
     if (options.minImportance !== undefined) { conditions.push('information_items.importance_score >= ?'); params.push(options.minImportance); }
     if (options.minRelevance !== undefined) { conditions.push('information_items.relevance_score >= ?'); params.push(options.minRelevance); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -78,7 +86,10 @@ export const informationStore = {
   },
   findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   findByResult(item: Pick<SearchResult, 'source' | 'url' | 'fingerprint'>) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.source = ? AND information_items.dedupe_key = ?`).get(item.source, dedupeKeyFor(item)) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
-  markRead(id: string) { return db.prepare('UPDATE information_items SET is_read = 1, updated_at = ? WHERE id = ?').run(new Date().toISOString(), id).changes > 0; },
+  setRead(id: string, isRead = true) { return db.prepare('UPDATE information_items SET is_read = ?, updated_at = ? WHERE id = ?').run(isRead ? 1 : 0, new Date().toISOString(), id).changes > 0; },
+  markRead(id: string) { return this.setRead(id, true); },
+  setSaved(id: string, isSaved: boolean) { return db.prepare('UPDATE information_items SET is_saved = ?, updated_at = ? WHERE id = ?').run(isSaved ? 1 : 0, new Date().toISOString(), id).changes > 0; },
+  setArchived(id: string, isArchived: boolean) { return db.prepare('UPDATE information_items SET is_archived = ?, updated_at = ? WHERE id = ?').run(isArchived ? 1 : 0, new Date().toISOString(), id).changes > 0; },
   setFeedback(id: string, value: FeedbackValue) {
     if (!db.prepare('SELECT id FROM information_items WHERE id = ?').get(id)) return undefined;
     const timestamp = new Date().toISOString();
