@@ -27,3 +27,4 @@ export type TopicConfig = {
 };
 
 export type CollectionError = { source: string; keyword: string; message: string };
+export type SourceCollectionStat = { source: string; attempts: number; successes: number; failures: number; durationMs: number; lastError?: string };

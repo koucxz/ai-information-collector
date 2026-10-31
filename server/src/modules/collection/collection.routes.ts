@@ -5,6 +5,7 @@ import { informationStore } from './information.store.js';
 import { historyStore } from './history.store.js';
 import { createSourceAdapters, sourceCatalog } from './source.registry.js';
 import { collectionRunner } from '../automation/collection.scheduler.js';
+import { collectionRunStore } from './collection-run.store.js';
 
 export const collectionRouter = Router();
 
@@ -21,6 +22,8 @@ collectionRouter.get('/preview', async (request, response) => {
 });
 
 collectionRouter.get('/sources', (_request, response) => response.json({ data: sourceCatalog }));
+collectionRouter.get('/runs', (request, response) => response.json({ data: collectionRunStore.list(Math.min(100, Math.max(1, Number(request.query.limit) || 30))) }));
+collectionRouter.get('/health', (_request, response) => response.json({ data: collectionRunStore.health() }));
 
 collectionRouter.post('/run', async (request, response) => {
   const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : sourceCatalog.filter((source) => source.id !== 'fixture').map((source) => source.id);

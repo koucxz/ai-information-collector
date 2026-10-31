@@ -25,6 +25,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS information_changes (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, change_type TEXT NOT NULL, summary TEXT NOT NULL, created_at TEXT NOT NULL);
   CREATE INDEX IF NOT EXISTS information_change_item_idx ON information_changes(item_id, created_at);
   CREATE TABLE IF NOT EXISTS information_feedback (item_id TEXT PRIMARY KEY REFERENCES information_items(id) ON DELETE CASCADE, value TEXT NOT NULL CHECK(value IN ('helpful', 'irrelevant', 'duplicate')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS collection_runs (id TEXT PRIMARY KEY, status TEXT NOT NULL, sources_json TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, results INTEGER NOT NULL DEFAULT 0, saved INTEGER NOT NULL DEFAULT 0, changes INTEGER NOT NULL DEFAULT 0, error TEXT);
+  CREATE INDEX IF NOT EXISTS collection_runs_started_idx ON collection_runs(started_at DESC);
+  CREATE TABLE IF NOT EXISTS source_health (source TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0, total_duration_ms INTEGER NOT NULL DEFAULT 0, last_success_at TEXT, last_failure_at TEXT, last_error TEXT, updated_at TEXT NOT NULL);
 `);
 
 const ensureColumn = (table: string, column: string, definition: string) => {
