@@ -5,6 +5,10 @@ const topicFields = {
   name: z.string().trim().min(1).max(80),
   aliases: listField,
   excludeWords: listField,
+  sourceIds: listField,
+  frequencyMinutes: z.number().int().min(5).max(10080),
+  notificationLevel: z.enum(['all', 'important', 'none']),
+  description: z.string().trim().max(240),
   enabled: z.boolean()
 };
 
@@ -12,6 +16,10 @@ export const topicCreateSchema = z.object({
   name: topicFields.name,
   aliases: topicFields.aliases.default([]),
   excludeWords: topicFields.excludeWords.default([]),
+  sourceIds: topicFields.sourceIds.default([]),
+  frequencyMinutes: topicFields.frequencyMinutes.default(120),
+  notificationLevel: topicFields.notificationLevel.default('important'),
+  description: topicFields.description.default(''),
   enabled: topicFields.enabled.default(true)
 }).strict();
 

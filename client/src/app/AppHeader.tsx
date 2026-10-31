@@ -1,6 +1,7 @@
 import { Badge, Button, Tooltip } from 'antd';
 import { Bell, Radar, RefreshCw } from 'lucide-react';
 import type { FeedMode, ServiceStatus } from '../shared/types';
+import type { OperationView } from '../features/operations/OperationsView';
 
 type AppHeaderProps = {
   feedMode: FeedMode;
@@ -11,6 +12,8 @@ type AppHeaderProps = {
   onCheckHealth: () => void;
   onLoadDigest: () => void;
   onRunCollection: () => void;
+  activeView: 'inbox' | OperationView;
+  onNavigate: (view: 'inbox' | OperationView) => void;
 };
 
 export function AppHeader(props: AppHeaderProps) {
@@ -22,9 +25,12 @@ export function AppHeader(props: AppHeaderProps) {
         <strong>SignalDock</strong>
       </div>
       <nav className="main-nav" aria-label="主导航">
-        <button className={feedMode !== 'relevant' ? 'active' : ''} onClick={() => props.onChangeMode('all')}>信息流</button>
-        <button className={feedMode === 'relevant' ? 'active' : ''} onClick={() => props.onChangeMode('relevant')}>重点</button>
-        <button onClick={props.onLoadDigest}>摘要</button>
+        <button className={props.activeView === 'inbox' ? 'active' : ''} onClick={() => props.onNavigate('inbox')}>信息流</button>
+        <button className={props.activeView === 'events' ? 'active' : ''} onClick={() => props.onNavigate('events')}>事件库</button>
+        <button className={props.activeView === 'runs' ? 'active' : ''} onClick={() => props.onNavigate('runs')}>采集任务</button>
+        <button className={props.activeView === 'sources' ? 'active' : ''} onClick={() => props.onNavigate('sources')}>来源</button>
+        <button className={props.activeView === 'notifications' ? 'active' : ''} onClick={() => props.onNavigate('notifications')}>通知</button>
+        <button className={props.activeView === 'settings' ? 'active' : ''} onClick={() => props.onNavigate('settings')}>设置</button>
       </nav>
       <div className="top-actions">
         <button className={'service-state ' + serviceStatus} onClick={props.onCheckHealth}>

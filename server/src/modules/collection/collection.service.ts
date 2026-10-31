@@ -5,6 +5,7 @@ import { historyStore } from './history.store.js';
 import { informationStore } from './information.store.js';
 import { createSourceAdapters } from './source.registry.js';
 import { collectionRunStore } from './collection-run.store.js';
+import { env } from '../../config/env.js';
 
 export const runCollection = async (sources: string[]) => {
   const runId = collectionRunStore.start(sources);
@@ -15,13 +16,16 @@ export const runCollection = async (sources: string[]) => {
     const saved = informationStore.saveResults(collection.data);
     const history = historyStore.capture(collection.data);
     let processed = 0; let ai = 0; let fallback = 0;
+    const pendingByEvent = new Map<string, NonNullable<ReturnType<typeof informationStore.findByResult>>>();
     for (const result of collection.data) {
       const item = informationStore.findByResult(result);
-      if (!item || item.aiStatus !== 'pending') continue;
-      const analysis = await analyzeInformation(item);
-      informationStore.updateAnalysis(item.id, analysis);
-      processed += 1;
-      if (analysis.provider === 'ai') ai += 1; else fallback += 1;
+      if (item && item.aiStatus === 'pending' && !pendingByEvent.has(item.eventKey)) pendingByEvent.set(item.eventKey, item);
+    }
+    const pending = [...pendingByEvent.values()];
+    for (let index = 0; index < pending.length; index += env.AI_CONCURRENCY) {
+      const batch = pending.slice(index, index + env.AI_CONCURRENCY);
+      const analyses = await Promise.all(batch.map(async (item) => ({ item, analysis: await analyzeInformation(item) })));
+      for (const { item, analysis } of analyses) { informationStore.updateAnalysis(item.id, analysis); processed += 1; if (analysis.provider === 'ai') ai += 1; else fallback += 1; }
     }
     const outcome = { ...collection, persistence: { ...saved, ...history }, analysis: { processed, ai, fallback }, runId };
     collectionRunStore.complete(runId, outcome);

@@ -10,11 +10,13 @@ export const collectTopics = async (topics: TopicConfig[], adapters: SourceAdapt
   const errors: CollectionError[] = [];
   const sourceStats: SourceCollectionStat[] = [];
   for (const adapter of adapters) {
+    const scopedTopics = activeTopics.filter((topic) => !topic.sourceIds?.length || topic.sourceIds.includes(adapter.source));
+    const scopedQueries = expandTopicQueries(scopedTopics);
     const startedAt = Date.now();
     let successes = 0;
     let failures = 0;
     let lastError: string | undefined;
-    for (const query of queries) {
+    for (const query of scopedQueries) {
       try {
         data.push(...(await adapter.search(query.value)).filter((item) => !matchesExcludedWord(item, query.excludeWords)));
         successes += 1;
@@ -24,7 +26,7 @@ export const collectTopics = async (topics: TopicConfig[], adapters: SourceAdapt
         errors.push({ source: adapter.source, keyword: query.value, message: lastError });
       }
     }
-    sourceStats.push({ source: adapter.source, attempts: queries.length, successes, failures, durationMs: Date.now() - startedAt, ...(lastError ? { lastError } : {}) });
+    sourceStats.push({ source: adapter.source, attempts: scopedQueries.length, successes, failures, durationMs: Date.now() - startedAt, ...(lastError ? { lastError } : {}) });
   }
   const unique = new Map(data.map((item) => [item.fingerprint, item]));
   return { data: [...unique.values()], errors, stats: { topics: activeTopics.length, keywords: queries.length, results: unique.size }, sourceStats };

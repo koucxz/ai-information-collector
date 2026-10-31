@@ -22,6 +22,10 @@ export type TopicConfig = {
   name: string;
   aliases?: string[];
   excludeWords?: string[];
+  sourceIds?: string[];
+  frequencyMinutes?: number;
+  notificationLevel?: 'all' | 'important' | 'none';
+  description?: string;
   enabled: boolean;
   keywords: Array<{ value: string; enabled: boolean }>;
 };

@@ -4,7 +4,7 @@ export type FeedMode = 'all' | 'unread' | 'relevant';
 export type FeedSort = 'latest' | 'importance' | 'personalized';
 
 export type Keyword = { id: string; value: string; enabled: boolean };
-export type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; enabled: boolean; keywords: Keyword[] };
+export type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; sourceIds: string[]; frequencyMinutes: number; notificationLevel: 'all' | 'important' | 'none'; description: string; enabled: boolean; keywords: Keyword[] };
 export type SourceOption = { id: string; name: string };
 export type FeedItem = {
   id: string;

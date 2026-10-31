@@ -49,6 +49,10 @@ const feedbackSelect = `information_items.*, feedback_row.value AS feedback,
   ) AS personalized_score`;
 
 export const informationStore = {
+  indexItem(item: { id: string; title: string; summary: string; content: string; analysisSummary?: string; keyword: string; sourceName: string }) {
+    db.prepare('DELETE FROM information_search WHERE item_id = ?').run(item.id);
+    db.prepare('INSERT INTO information_search (item_id, title, summary, content, analysis_summary, keyword, source_name) VALUES (?, ?, ?, ?, ?, ?, ?)').run(item.id, item.title, item.summary, item.content, item.analysisSummary ?? '', item.keyword, item.sourceName);
+  },
   saveResults(results: SearchResult[]) {
     const insert = db.prepare('INSERT OR IGNORE INTO information_items (id, source, source_name, keyword, title, summary, content, url, published_at, collected_at, fingerprint, dedupe_key, event_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     let saved = 0;
@@ -60,6 +64,11 @@ export const informationStore = {
       const result = insert.run(randomUUID(), item.source, item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, dedupeKey, eventKey, timestamp, timestamp);
       saved += Number(result.changes);
       db.prepare('UPDATE information_items SET source_name = ?, keyword = ?, title = ?, summary = ?, content = ?, url = ?, published_at = ?, collected_at = ?, fingerprint = ?, event_key = ?, updated_at = ? WHERE source = ? AND dedupe_key = ?').run(item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, eventKey, timestamp, item.source, dedupeKey);
+      const stored = db.prepare('SELECT id FROM information_items WHERE source = ? AND dedupe_key = ?').get(item.source, dedupeKey) as { id: string } | undefined;
+      if (stored) {
+        const current = this.findById(stored.id);
+        if (current) this.indexItem(current);
+      }
     }
     return { saved, duplicates: results.length - saved };
   },
@@ -72,9 +81,10 @@ export const informationStore = {
     if (options.archived === false) conditions.push('information_items.is_archived = 0');
     if (options.archived === true) conditions.push('information_items.is_archived = 1');
     if (options.query?.trim()) {
-      conditions.push('(information_items.title LIKE ? OR information_items.summary LIKE ? OR information_items.content LIKE ? OR information_items.analysis_summary LIKE ? OR information_items.keyword LIKE ? OR information_items.source_name LIKE ?)');
+      conditions.push('(information_items.title LIKE ? OR information_items.summary LIKE ? OR information_items.content LIKE ? OR information_items.analysis_summary LIKE ? OR information_items.keyword LIKE ? OR information_items.source_name LIKE ? OR information_items.id IN (SELECT item_id FROM information_search WHERE information_search MATCH ?))');
       const query = `%${options.query.trim()}%`;
-      params.push(query, query, query, query, query, query);
+      const ftsQuery = `"${options.query.trim().replaceAll('"', ' ')}"`;
+      params.push(query, query, query, query, query, query, ftsQuery);
     }
     if (options.minImportance !== undefined) { conditions.push('information_items.importance_score >= ?'); params.push(options.minImportance); }
     if (options.minRelevance !== undefined) { conditions.push('information_items.relevance_score >= ?'); params.push(options.minRelevance); }
@@ -102,6 +112,6 @@ export const informationStore = {
     const timestamps = sources.map((source) => source.collectedAt).sort();
     return { eventKey: item.eventKey, title: item.title, firstSeenAt: timestamps[0], lastSeenAt: timestamps.at(-1), sourceCount: new Set(sources.map((source) => source.source)).size, sources };
   },
-  updateAnalysis(id: string, analysis: { relevanceScore: number; importanceScore: number; summary: string; reason: string; provider: string }) { db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?').run(analysis.relevanceScore, analysis.importanceScore, analysis.provider, analysis.summary, analysis.reason, new Date().toISOString(), id); return this.findById(id); },
+  updateAnalysis(id: string, analysis: { relevanceScore: number; importanceScore: number; summary: string; reason: string; provider: string }) { db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?').run(analysis.relevanceScore, analysis.importanceScore, analysis.provider, analysis.summary, analysis.reason, new Date().toISOString(), id); const item = this.findById(id); if (item) this.indexItem(item); return item; },
   eventKeyFor
 };

@@ -9,6 +9,7 @@ import { historyRouter } from './modules/collection/history.routes.js';
 import { analysisRouter } from './modules/analysis/analysis.routes.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { eventRouter } from './modules/events/event.routes.js';
+import { dataRouter } from './modules/data/data.routes.js';
 
 export const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api/history', historyRouter);
 app.use('/api/information', analysisRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/events', eventRouter);
+app.use('/api/data', dataRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ error: '接口不存在' });

@@ -11,14 +11,19 @@ SignalDock 是一个面向个人使用的信息收集与持续监测平台。设
 ## 功能特性
 
 - 管理关注主题、关键词、别名和排除词
+- 为不同主题设置来源范围、采集频率和通知级别
 - 聚合百度、B 站、微博、知乎、掘金和 GitHub 公开信息
 - 清理 URL 跟踪参数，按内容指纹去重并合并同一事件
 - 保存历史快照，识别首次发现和内容更新
 - 通过 OpenAI 兼容接口生成摘要、相关性和重要度评分
+- 支持有限并发、超时、指数退避重试和 AI 调用记录
 - 无 API Key 时自动使用本地规则完成分析
 - 按来源、未读、相关性和重要程度筛选与排序
 - 根据“有用、无关、重复”反馈调整个性化排序
 - 支持定时采集、Socket.io 实时状态和每日/每周邮件摘要
+- 提供事件库、采集任务、来源健康和通知渠道页面
+- 支持飞书、企业微信、钉钉和通用 Webhook
+- 支持 JSON/CSV 导出以及完整备份恢复
 
 ## 工作流程
 
@@ -128,6 +133,15 @@ docker compose up --build -d
 | `GET /api/information` | 信息流与筛选 |
 | `PUT /api/information/:id/feedback` | 提交使用反馈 |
 | `GET /api/notifications/digest` | 预览周期摘要 |
+| `GET /api/events` | 事件聚合列表 |
+| `GET /api/collect/runs` | 采集任务记录 |
+| `GET /api/collect/health` | 来源健康统计 |
+| `GET /api/data/export?format=json` | 导出 JSON 数据 |
+| `GET /api/data/export?format=csv` | 导出信息 CSV |
+| `GET /api/data/backup` | 下载完整备份 |
+| `POST /api/data/restore` | 恢复完整备份 |
+| `GET /api/notifications/channels` | 通知渠道列表 |
+| `POST /api/notifications/channels/:id/test` | 发送测试通知 |
 
 ## TODO
 
@@ -143,8 +157,8 @@ docker compose up --build -d
 - [x] 增加用户反馈和个性化排序
 - [x] 增加定时采集、实时推送、邮件通知和变化摘要
 - [x] 增加 CI、安全检查和 Docker 部署配置
-- [ ] 根据实际使用情况持续调整各平台解析规则
-- [ ] 增加信息导出和备份恢复
+- [x] 根据实际使用情况持续调整各平台解析规则
+- [x] 增加信息导出和备份恢复
 
 ## 贡献
 

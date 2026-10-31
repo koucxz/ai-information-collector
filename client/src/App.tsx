@@ -8,6 +8,7 @@ import { AppModals } from './app/AppModals';
 import { FocusAside } from './features/inbox/FocusAside';
 import { InboxView } from './features/inbox/InboxView';
 import { TopicSettingsDrawer } from './features/topics/TopicSettingsDrawer';
+import { OperationsView, type OperationView } from './features/operations/OperationsView';
 import { request } from './shared/api';
 import { splitInput } from './shared/format';
 import type {
@@ -41,6 +42,7 @@ function SignalDock() {
   const [error, setError] = useState('');
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [activeView, setActiveView] = useState<'inbox' | OperationView>('inbox');
 
   const loadFeed = useCallback(async () => {
     const query = new URLSearchParams({
@@ -164,7 +166,10 @@ function SignalDock() {
         body: JSON.stringify({
           name: topicName,
           aliases: splitInput(topicAliases),
-          excludeWords: splitInput(topicExcludes)
+          excludeWords: splitInput(topicExcludes),
+          sourceIds: selectedSources,
+          frequencyMinutes: 120,
+          notificationLevel: 'important'
         })
       });
       setTopicName('');
@@ -310,9 +315,11 @@ function SignalDock() {
         onCheckHealth={() => void checkHealth()}
         onLoadDigest={() => void loadDigest()}
         onRunCollection={() => void runCollection()}
+        activeView={activeView}
+        onNavigate={setActiveView}
       />
-      {error && <Alert className="page-alert" type="error" message={error} closable onClose={() => setError('')} showIcon />}
-      <main className="focus-layout">
+      {error && <Alert className="page-alert" type="error" title={error} closable onClose={() => setError('')} showIcon />}
+      {activeView === 'inbox' ? <main className="focus-layout">
         <InboxView
           overview={overview}
           feedSort={feedSort}
@@ -344,7 +351,7 @@ function SignalDock() {
           onOpenSettings={() => setSettingsOpen(true)}
           onLoadDigest={() => void loadDigest()}
         />
-      </main>
+      </main> : <OperationsView view={activeView} onError={setError} />}
       <TopicSettingsDrawer
         open={settingsOpen}
         sources={sources}
