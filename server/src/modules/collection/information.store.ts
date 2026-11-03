@@ -32,7 +32,8 @@ export const informationStore = {
     if (options.minImportance !== undefined) { conditions.push('importance_score >= ?'); params.push(options.minImportance); }
     if (options.minRelevance !== undefined) { conditions.push('relevance_score >= ?'); params.push(options.minRelevance); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const order = options.sort === 'importance' ? 'importance_score DESC, collected_at DESC' : 'collected_at DESC';
+    // 同一轮采集的条目入库时间几乎相同，按入库时间排会变成随机顺序；优先用内容发布时间
+    const order = options.sort === 'importance' ? 'importance_score DESC, COALESCE(published_at, collected_at) DESC' : 'COALESCE(published_at, collected_at) DESC';
     const total = Number((db.prepare(`SELECT COUNT(*) AS count FROM information_items ${where}`).get(...params) as { count: number }).count);
     const rows = db.prepare(`SELECT * FROM information_items ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, options.pageSize, (options.page - 1) * options.pageSize) as unknown as Record<string, unknown>[];
     return { data: rows.map(mapRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };

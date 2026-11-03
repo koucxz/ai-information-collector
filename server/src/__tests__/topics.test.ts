@@ -20,7 +20,9 @@ describe('topic and keyword management', () => {
 
     const listed = await request(app).get('/api/topics');
     expect(listed.body.data[0]).toMatchObject({ name: '人工智能', aliases: ['AI', '大模型'], excludeWords: ['广告'] });
-    expect(listed.body.data[0].keywords[0]).toMatchObject({ value: '多模态模型', enabled: true });
+    // 表单里填的关键词要真正落进 keywords 表，否则采集匹配不到任何内容
+    expect(listed.body.data[0].keywords.map((item: { value: string }) => item.value)).toEqual(['AI', '大模型', '多模态模型']);
+    expect(listed.body.data[0].keywords.every((item: { enabled: boolean }) => item.enabled)).toBe(true);
   });
 
   it('updates and disables a topic and its keyword', async () => {

@@ -1,17 +1,46 @@
 [
   {
     "title": "国产大模型开始进入企业知识库工作流",
-    "summary": "多家团队将检索增强和权限控制结合到内部知识库。",
+    "summary": "多家厂商在同一周发布知识库产品更新，重点从「能问答」转向「能改流程」，私有化部署与权限体系成为采购硬指标。",
     "content": "企业 AI 应用从演示走向日常工作流，重点关注数据权限、评测和成本。",
     "url": "https://example.com/signaldock/ai-knowledge-base",
-    "publishedAt": "2026-10-14T09:30:00+08:00",
-    "keywords": ["人工智能", "AI", "大模型"]
+    "sourceName": "知乎",
+    "publishedAt": "2026-11-04T10:48:00+08:00",
+    "keywords": ["人工智能", "AI", "大模型", "知识库"]
+  },
+  {
+    "title": "从 RAG 到 Agent：检索层设计的五个常见误区",
+    "summary": "切片策略、混合检索权重、重排模型的取舍，作者用三组线上指标说明为什么「向量库选型」通常不是瓶颈。",
+    "content": "检索层是 RAG 效果的主要瓶颈，向量库选型往往不是关键。",
+    "url": "https://example.com/signaldock/rag-to-agent",
+    "sourceName": "掘金",
+    "publishedAt": "2026-11-04T10:12:00+08:00",
+    "keywords": ["RAG", "Agent", "检索", "切片"]
+  },
+  {
+    "title": "langchain 发布 v0.3.27，重构 tool 调用链路",
+    "summary": "本次更新移除了旧的 AgentExecutor 兼容层，新增结构化输出校验，升级前需检查自定义工具的入参签名。",
+    "content": "发布说明强调 tool 调用链路重构与结构化输出校验。",
+    "url": "https://example.com/signaldock/langchain-0327",
+    "sourceName": "GitHub",
+    "publishedAt": "2026-11-04T09:00:00+08:00",
+    "keywords": ["Agent", "langchain", "tool"]
+  },
+  {
+    "title": "某厂商开源 32B 推理模型，评测分数引发讨论",
+    "summary": "社区复现结果与官方榜单存在差距，争议集中在国产大模型的测试集污染与推理成本口径上。",
+    "content": "国产大模型开源之后，社区复现的评测结果与官方榜单存在差距。",
+    "url": "https://example.com/signaldock/open-32b-model",
+    "sourceName": "微博",
+    "publishedAt": "2026-11-04T08:00:00+08:00",
+    "keywords": ["大模型", "推理模型", "开源"]
   },
   {
     "title": "TypeScript 项目开始统一运行时校验",
     "summary": "团队通过 Zod 和接口契约减少前后端参数漂移。",
     "content": "运行时校验、错误边界和自动化测试成为中小型全栈项目的基础设施。",
     "url": "https://example.com/signaldock/typescript-validation",
+    "sourceName": "掘金",
     "publishedAt": "2026-10-13T16:10:00+08:00",
     "keywords": ["TypeScript", "软件工程", "工程实践"]
   },
@@ -20,6 +49,7 @@
     "summary": "持续快照和来源合并可以减少重复阅读。",
     "content": "用户更关心新出现的内容、原文变化和同一事件的多来源证据。",
     "url": "https://example.com/signaldock/change-monitoring",
+    "sourceName": "少数派",
     "publishedAt": "2026-10-12T11:20:00+08:00",
     "keywords": ["信息收集", "变化检测", "信息监测"]
   }
