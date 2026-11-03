@@ -1,0 +1,50 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: signaldock-api:latest
+    container_name: signaldock-api
+    restart: unless-stopped
+    # Vercel 的服务端反代需要从公网访问到该端口，所以必须对外监听。
+    # 若已用 Caddy 提供 HTTPS，可改成 "127.0.0.1:3001:8080" 只保留 443 入口。
+    ports:
+      - "3001:8080"
+    env_file:
+      - ./server/.env
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "file:/data/signaldock.db"
+      NODE_ENV: "production"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 可选：自动申请 HTTPS 证书。启用前把 Caddyfile 里的域名换成你自己的
+  caddy:
+    image: caddy:2-alpine
+    container_name: signaldock-caddy
+    restart: unless-stopped
+    profiles: ["tls"]
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

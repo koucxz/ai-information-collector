@@ -115,6 +115,11 @@ GITHUB_TOKEN=
 
 `.env` 只用于本地配置，不要提交到 Git。
 
+## 部署
+
+生产环境采用「腾讯云跑后端 + Vercel 跑前端」的拆分部署（后端依赖 `node:sqlite` 本地文件，无法部署到 Vercel）。
+完整步骤、脚本和排错见 [DEPLOY.md](DEPLOY.md)。
+
 ## 开发路线
 
 - [x] 初始化 Express 和 React 应用

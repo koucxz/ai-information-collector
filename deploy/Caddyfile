@@ -1,0 +1,13 @@
+# 把 API.DOMAIN 换成你指向这台服务器的域名，Caddy 会自动申请并续期 Let's Encrypt 证书
+# 启用方式: docker compose --profile tls up -d
+
+api.example.com {
+	encode zstd gzip
+	reverse_proxy api:8080
+	log {
+		output file /data/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}

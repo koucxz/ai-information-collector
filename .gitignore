@@ -36,3 +36,8 @@ Thumbs.db
 # local planning files
 work/
 tmp/
+
+# deployment
+.vercel/
+data/
+
