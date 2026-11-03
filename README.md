@@ -97,7 +97,7 @@ npm install
 npm run dev
 ```
 
-浏览器访问 `http://localhost:5173`。不配置外部密钥也可以使用本地测试数据和本地分析规则。
+浏览器访问 `http://localhost:5173`。首次登录使用单一管理员账号：用户名 `admin`，密码 `VideoNote2026.`（末尾句号也是密码的一部分）。不配置外部密钥也可以使用本地测试数据和本地分析规则。
 
 ### 环境变量
 
@@ -108,6 +108,10 @@ AI_BASE_URL=https://api.siliconflow.cn/v1
 AI_API_KEY=
 AI_MODEL=Qwen/Qwen3-8B
 GITHUB_TOKEN=
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=VideoNote2026.
+SESSION_SECRET=请替换为随机长字符串
+TRUST_PROXY=false
 COLLECTION_SCHEDULE_ENABLED=false
 COLLECTION_CRON=0 */2 * * *
 ```
@@ -120,6 +124,8 @@ COLLECTION_CRON=0 */2 * * *
 docker compose up --build -d
 ```
 
+Docker 部署前必须在 `.env` 中设置随机的 `SESSION_SECRET`；服务端以非 root 用户运行，并要求登录后才能访问数据、采集、备份和通知接口。
+
 启动后访问 `http://localhost:8080`，SQLite 数据保存在 Docker volume 中。
 
 ## 常用接口
@@ -127,6 +133,8 @@ docker compose up --build -d
 | 接口 | 说明 |
 | --- | --- |
 | `GET /api/health` | 服务状态 |
+| `POST /api/auth/login` | 管理员登录 |
+| `POST /api/auth/logout` | 管理员退出 |
 | `GET /api/topics` | 关注主题 |
 | `GET /api/collect/sources` | 可用信息源 |
 | `POST /api/collect/run` | 执行完整采集流程 |

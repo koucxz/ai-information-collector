@@ -1,6 +1,7 @@
 import type { SearchResult, SourceAdapter } from './collection.types.js';
 import { normalizeResult, stripHtml } from './normalize.js';
 import { browserHeaders, parseBaiduHeadings } from './baidu.adapter.js';
+import { parsePublicHttpUrl } from '../../security/url.js';
 
 type Fetcher = typeof fetch;
 type BilibiliPayload = {
@@ -139,8 +140,10 @@ export class BaiduIndexedAdapter extends TimedAdapter {
     const headings = parseBaiduHeadings(await response.text());
     const resolved = await Promise.all(headings.map(async (heading) => {
       try {
+        if (!parsePublicHttpUrl(heading.url)) return heading;
         const redirect = await this.request(heading.url, { signal: options.signal, redirect: 'manual' });
-        return { ...heading, url: redirect.headers.get('location') ?? heading.url };
+        const location = redirect.headers.get('location');
+        return { ...heading, url: location && parsePublicHttpUrl(location) ? location : heading.url };
       } catch { return heading; }
     }));
     return resolved.map(({ title, url }) => normalizeResult({

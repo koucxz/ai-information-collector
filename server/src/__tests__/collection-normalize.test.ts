@@ -10,6 +10,10 @@ describe('collection normalization', () => {
     expect(first.fingerprint).toBe(second);
   });
 
+  it('drops unsafe URL schemes from collected results', () => {
+    expect(normalizeResult({ source: 'fixture', sourceName: '本地测试数据', keyword: 'AI', title: '危险链接', summary: '', content: '', url: 'javascript:alert(1)', publishedAt: null }).url).toBe('');
+  });
+
   it('removes tracking parameters and orders meaningful query parameters', () => {
     const result = normalizeResult({ source: 'baidu', sourceName: '百度', keyword: 'AI', title: 'AI', summary: '', content: 'AI', url: 'https://WWW.Example.com/news/?utm_source=feed&b=2&a=1#top', publishedAt: null });
     expect(result.url).toBe('https://example.com/news?a=1&b=2');

@@ -8,8 +8,9 @@ dataRouter.get('/export', (request, response) => {
     response.setHeader('Content-Disposition', 'attachment; filename="signaldock-information.csv"');
     return response.send(`\ufeff${exportInformationCsv()}`);
   }
+  if (request.query.format !== undefined && request.query.format !== 'json' && request.query.format !== 'backup') return response.status(400).json({ error: '导出格式无效' });
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
-  response.setHeader('Content-Disposition', `attachment; filename="${request.query.format === 'backup' ? 'signaldock-backup.json' : 'signaldock-information.json'}"`);
+  response.setHeader('Content-Disposition', 'attachment; filename="signaldock-backup.json"');
   return response.send(JSON.stringify(createBackup()));
 });
 dataRouter.get('/backup', (_request, response) => {

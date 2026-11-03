@@ -3,6 +3,8 @@ import { z } from 'zod';
 const booleanString = z.enum(['true', 'false']).default('false').transform((value) => value === 'true');
 
 const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  TRUST_PROXY: booleanString,
   PORT: z.coerce.number().int().positive().default(3001),
   CLIENT_URL: z.string().url().default('http://localhost:5173'),
   DATABASE_URL: z.string().default('file:./prisma/dev.db'),
@@ -25,9 +27,14 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
   NOTIFY_EMAIL: z.string().optional()
+  ,ADMIN_USERNAME: z.string().trim().min(1).max(64).default('admin')
+  ,ADMIN_PASSWORD: z.string().min(12).max(256).default('VideoNote2026.')
+  ,SESSION_SECRET: z.string().min(16).default('signaldock-development-session-secret')
 });
 
 export const env = envSchema.parse({
+  NODE_ENV: process.env.NODE_ENV,
+  TRUST_PROXY: process.env.TRUST_PROXY,
   PORT: process.env.PORT,
   CLIENT_URL: process.env.CLIENT_URL,
   DATABASE_URL: process.env.DATABASE_URL,
@@ -49,5 +56,12 @@ export const env = envSchema.parse({
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM,
-  NOTIFY_EMAIL: process.env.NOTIFY_EMAIL
+  NOTIFY_EMAIL: process.env.NOTIFY_EMAIL,
+  ADMIN_USERNAME: process.env.ADMIN_USERNAME,
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+  SESSION_SECRET: process.env.SESSION_SECRET
 });
+
+if (env.NODE_ENV === 'production' && env.SESSION_SECRET === 'signaldock-development-session-secret') {
+  throw new Error('生产环境必须设置随机 SESSION_SECRET');
+}

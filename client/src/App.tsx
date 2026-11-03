@@ -15,6 +15,7 @@ import type {
   CollectionEvent, CollectionResult, Digest, EditingValue, EventDetail, FeedbackValue,
   FeedItem, FeedMode, FeedResponse, FeedSort, Keyword, ServiceStatus, SourceOption, Topic
 } from './shared/types';
+import { LoginView } from './auth/LoginView';
 
 function SignalDock() {
   const { modal } = AntApp.useApp();
@@ -104,7 +105,7 @@ function SignalDock() {
   useEffect(() => { void loadFeed(); }, [loadFeed]);
 
   useEffect(() => {
-    const socket = io();
+    const socket = io({ withCredentials: true });
     socket.on('collection:status', (event: CollectionEvent) => {
       if (event.status === 'started') setLiveStatus('正在采集');
       if (event.status === 'failed') {
@@ -392,6 +393,10 @@ function SignalDock() {
 }
 
 function App() {
+  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'anonymous'>('checking');
+  useEffect(() => {
+    void request('/api/auth/me').then(() => setAuthState('authenticated')).catch(() => setAuthState('anonymous'));
+  }, []);
   return (
     <ConfigProvider
       locale={zhCN}
@@ -415,7 +420,7 @@ function App() {
         }
       }}
     >
-      <AntApp><SignalDock /></AntApp>
+      <AntApp>{authState === 'checking' ? <div className="login-shell"><div className="login-card">正在检查登录状态…</div></div> : authState === 'authenticated' ? <SignalDock /> : <LoginView onLogin={() => setAuthState('authenticated')} />}</AntApp>
     </ConfigProvider>
   );
 }

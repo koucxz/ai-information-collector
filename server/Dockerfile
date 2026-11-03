@@ -12,6 +12,8 @@ COPY server/package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/server/dist ./dist
 COPY skills /app/skills
+RUN mkdir -p /data && chown -R node:node /app /data
+USER node
 EXPOSE 3001
 CMD ["npm", "start"]
 

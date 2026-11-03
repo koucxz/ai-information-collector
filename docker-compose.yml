@@ -4,8 +4,13 @@ services:
       context: .
       dockerfile: server/Dockerfile
     environment:
+      NODE_ENV: production
       PORT: 3001
       CLIENT_URL: http://localhost:8080
+      TRUST_PROXY: true
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-VideoNote2026.}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env before starting}
       DATABASE_URL: file:/data/signaldock.db
       AI_BASE_URL: ${AI_BASE_URL:-https://api.siliconflow.cn/v1}
       AI_API_KEY: ${AI_API_KEY:-}
@@ -23,6 +28,12 @@ services:
       NOTIFY_EMAIL: ${NOTIFY_EMAIL:-}
     volumes:
       - signaldock-data:/data
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   client:

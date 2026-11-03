@@ -3,6 +3,7 @@ import { buildDigest, sendDigest, type DigestPeriod } from './digest.service.js'
 import { notificationChannelStore, type NotificationChannelType } from '../../db/client.js';
 import { broadcastDigest, sendToChannel } from './channel.service.js';
 import { z } from 'zod';
+import { parsePublicHttpUrl } from '../../security/url.js';
 
 export const notificationRouter = Router();
 const periodFrom = (value: unknown): DigestPeriod | undefined => value === 'daily' || value === 'weekly' ? value : undefined;
@@ -19,7 +20,7 @@ notificationRouter.post('/digest/send', async (request, response) => {
   catch (error) { return response.status(502).json({ error: error instanceof Error ? error.message : '邮件发送失败' }); }
 });
 
-const channelSchema = z.object({ name: z.string().trim().min(1).max(80), type: z.enum(['feishu', 'wecom', 'dingtalk', 'webhook']), endpoint: z.string().url(), enabled: z.boolean().optional() }).strict();
+const channelSchema = z.object({ name: z.string().trim().min(1).max(80), type: z.enum(['feishu', 'wecom', 'dingtalk', 'webhook']), endpoint: z.string().trim().refine((value) => Boolean(parsePublicHttpUrl(value)), '通知地址必须是公开的 HTTP(S) 地址'), enabled: z.boolean().optional() }).strict();
 const redactChannel = (channel: ReturnType<typeof notificationChannelStore.findById>) => channel ? { ...channel, endpoint: (() => { try { const url = new URL(channel.endpoint); return `${url.origin}/***`; } catch { return '***'; } })() } : channel;
 notificationRouter.get('/channels', (_request, response) => response.json({ data: notificationChannelStore.list().map(redactChannel) }));
 notificationRouter.post('/channels', (request, response) => { const parsed = channelSchema.safeParse(request.body); if (!parsed.success) return response.status(400).json({ error: '通知渠道参数无效' }); return response.status(201).json({ data: redactChannel(notificationChannelStore.create(parsed.data)) }); });

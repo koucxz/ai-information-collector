@@ -8,6 +8,7 @@ export const normalizeUrl = (value: string | undefined | null) => {
   if (!raw) return '';
   try {
     const url = new URL(raw);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return '';
     url.hash = '';
     url.hostname = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
     for (const key of [...url.searchParams.keys()]) {

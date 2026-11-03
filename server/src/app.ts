@@ -10,10 +10,27 @@ import { analysisRouter } from './modules/analysis/analysis.routes.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { eventRouter } from './modules/events/event.routes.js';
 import { dataRouter } from './modules/data/data.routes.js';
+import { authRouter } from './modules/auth/auth.routes.js';
+import { requireAuth } from './auth.js';
 
 export const app = express();
 
-app.use(cors({ origin: env.CLIENT_URL }));
+app.disable('x-powered-by');
+app.set('trust proxy', env.TRUST_PROXY ? 1 : 0);
+app.use((_request, response, next) => {
+  response.setHeader('X-Content-Type-Options', 'nosniff');
+  response.setHeader('X-Frame-Options', 'DENY');
+  response.setHeader('Referrer-Policy', 'no-referrer');
+  response.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://localhost:3001 http://localhost:5173; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'");
+  if (env.NODE_ENV === 'production') response.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+app.use(cors({ origin: env.CLIENT_URL, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] }));
+app.use((request, response, next) => {
+  const origin = request.get('Origin');
+  if (origin && !['GET', 'HEAD', 'OPTIONS'].includes(request.method) && origin !== env.CLIENT_URL) return response.status(403).json({ error: '请求来源不受信任' });
+  return next();
+});
 app.use(express.json({ limit: '256kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true }));
 
@@ -24,6 +41,9 @@ app.get('/api/health', (_request, response) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use('/api/auth', authRouter);
+app.use('/api', requireAuth);
 
 app.use('/api/topics', topicRouter);
 app.use('/api/collect', collectionRouter);
@@ -36,4 +56,8 @@ app.use('/api/data', dataRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ error: '接口不存在' });
+});
+
+app.use((_error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  response.status(500).json({ error: '服务器内部错误' });
 });

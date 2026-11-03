@@ -1,4 +1,5 @@
 import { notificationChannelStore, type NotificationChannelType } from '../../db/client.js';
+import { assertPublicHttpUrl } from '../../security/url.js';
 
 const payloadFor = (type: NotificationChannelType, title: string, text: string) => {
   if (type === 'feishu') return { msg_type: 'text', content: { text: `${title}\n${text}` } };
@@ -9,7 +10,13 @@ const payloadFor = (type: NotificationChannelType, title: string, text: string) 
 
 export const sendToChannel = async (channel: { id: string; type: NotificationChannelType; endpoint: string }, digest: { title: string; text: string }) => {
   try {
-    const response = await fetch(channel.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadFor(channel.type, digest.title, digest.text)) });
+    const endpoint = await assertPublicHttpUrl(channel.endpoint);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+    let response: Response;
+    try {
+      response = await fetch(endpoint, { method: 'POST', redirect: 'error', signal: controller.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadFor(channel.type, digest.title, digest.text)) });
+    } finally { clearTimeout(timer); }
     if (!response.ok) throw new Error(`Webhook 返回 HTTP ${response.status}`);
     notificationChannelStore.recordDelivery({ channelId: channel.id, status: 'sent', responseCode: response.status });
     return { sent: true, channelId: channel.id };
