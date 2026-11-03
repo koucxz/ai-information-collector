@@ -143,23 +143,6 @@ docker compose up --build -d
 | `GET /api/notifications/channels` | 通知渠道列表 |
 | `POST /api/notifications/channels/:id/test` | 发送测试通知 |
 
-## TODO
-
-- [x] 初始化 Express 和 React 应用
-- [x] 增加健康检查、开发环境代理、CORS 和基础限流
-- [x] 实现关注主题和关键词管理
-- [x] 建立 SQLite 数据模型和本地持久化
-- [x] 接入百度、B 站、微博、知乎、掘金和 GitHub
-- [x] 完成 URL、内容去重和事件合并
-- [x] 增加历史快照和变化检测
-- [x] 增加 AI 结构化分析和无密钥降级
-- [x] 完成信息流、筛选、排序、分页和未读状态
-- [x] 增加用户反馈和个性化排序
-- [x] 增加定时采集、实时推送、邮件通知和变化摘要
-- [x] 增加 CI、安全检查和 Docker 部署配置
-- [x] 根据实际使用情况持续调整各平台解析规则
-- [x] 增加信息导出和备份恢复
-
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request。提交前请确认：
