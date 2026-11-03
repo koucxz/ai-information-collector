@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SignalDock · 白色主题设计稿</title>
+<style>
+  :root{
+    --bg:#FCFCFB; --card:#FFFFFF;
+    --line:#EAE8E5; --line-soft:#F3F2EF;
+    --ink:#1B1A18; --ink-2:#5C5852; --ink-3:#928D86;
+    --accent:#2563EB; --accent-ink:#1D4ED8; --accent-soft:#EFF4FF;
+    --green:#15803D; --green-soft:#F1FBF4;
+    --amber:#B45309; --amber-soft:#FFF8EC;
+    --rose:#BE123C; --rose-soft:#FFF2F4;
+    --r-card:12px; --r-ctl:8px;
+    --shadow:0 1px 2px rgba(24,22,20,.05), 0 1px 3px rgba(24,22,20,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);overflow-x:hidden}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC",-apple-system,"Helvetica Neue",sans-serif;
+    color:var(--ink); font-size:13px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+  h1,h2,h3,p{margin:0}
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    height:60px; padding:0 24px;
+    background:rgba(252,252,251,.88);
+    backdrop-filter:saturate(180%) blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px}
+  .brand-mark{
+    display:grid; place-items:center; width:30px; height:30px;
+    border-radius:9px; background:var(--accent-soft); color:var(--accent);
+  }
+  .brand-name{font-size:15px; font-weight:600; letter-spacing:.01em}
+  .brand-sub{font-size:12px; color:var(--ink-3); padding-left:10px; margin-left:2px; border-left:1px solid var(--line)}
+  .topbar-right{display:flex; align-items:center; gap:8px}
+  .status{
+    display:inline-flex; align-items:center; gap:7px;
+    height:28px; padding:0 10px; border-radius:999px;
+    font-size:12px; color:var(--ink-2); background:var(--card); border:1px solid var(--line);
+  }
+  .status i{width:6px; height:6px; border-radius:50%; background:var(--ink-3); flex:none}
+  .status.online i{background:#16A34A; box-shadow:0 0 0 3px rgba(22,163,74,.12)}
+  .status.offline i{background:var(--rose); box-shadow:0 0 0 3px rgba(190,18,60,.10)}
+  .status.checking i{background:var(--amber); box-shadow:0 0 0 3px rgba(180,83,9,.10)}
+
+  /* ---------- 通用控件 ---------- */
+  .icon-btn{
+    display:grid; place-items:center; width:28px; height:28px;
+    border:1px solid var(--line); border-radius:var(--r-ctl);
+    color:var(--ink-2); background:var(--card);
+  }
+  .icon-btn:hover{border-color:#D6D3D1; color:var(--ink)}
+  .btn{
+    display:inline-flex; align-items:center; gap:6px;
+    height:32px; padding:0 12px; border-radius:var(--r-ctl);
+    font-size:13px; font-weight:500; border:1px solid transparent;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .btn-primary{background:var(--accent); color:#fff; box-shadow:0 1px 2px rgba(37,99,235,.24)}
+  .btn-primary:hover{background:var(--accent-ink)}
+  .btn-ghost{background:var(--card); border-color:var(--line); color:var(--ink-2)}
+  .btn-ghost:hover{border-color:#D6D3D1; color:var(--ink)}
+  .btn-mini{
+    height:26px; padding:0 9px; font-size:11px; font-weight:400;
+    border:1px solid var(--line); border-radius:6px; color:var(--ink-2); background:var(--card);
+  }
+  .btn-mini:hover{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
+
+  .seg{display:inline-flex; padding:3px; gap:2px; background:#F4F3F0; border-radius:var(--r-ctl)}
+  .seg button{
+    height:24px; padding:0 10px; border-radius:6px; font-size:12px; color:var(--ink-2);
+  }
+  .seg button.active{background:var(--card); color:var(--ink); font-weight:500; box-shadow:0 1px 2px rgba(24,22,20,.08)}
+
+  /* ---------- 页面骨架 ---------- */
+  .wrap{max-width:1120px; margin:0 auto; padding:26px 24px 56px}
+  .page-head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:20px}
+  .page-head h1{font-size:22px; font-weight:600; letter-spacing:-.01em}
+  .page-head p{margin-top:5px; font-size:13px; color:var(--ink-3)}
+
+  /* ---------- 指标条 ---------- */
+  .stat-row{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px}
+  .stat{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; background:var(--card);
+    border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow);
+  }
+  .stat-label{font-size:12px; color:var(--ink-3)}
+  .stat-value{font-size:22px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+  .stat-value small{font-size:12px; font-weight:400; color:var(--ink-3); margin-left:4px}
+
+  /* ---------- 主栅格 ---------- */
+  .grid{display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:16px; align-items:start}
+  .grid > *{min-width:0}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow)}
+  .card + .card{margin-top:16px}
+  .card-head{
+    display:flex; align-items:center; gap:10px;
+    padding:12px 16px; border-bottom:1px solid var(--line-soft);
+  }
+  .card-head h2{font-size:14px; font-weight:600; margin-right:auto; min-width:0}
+  .count{
+    display:inline-grid; place-items:center; min-width:18px; height:18px; padding:0 5px;
+    margin-left:6px; border-radius:999px; background:#F4F3F0;
+    font-size:11px; font-weight:500; color:var(--ink-2); vertical-align:1px;
+  }
+
+  /* ---------- 信息流 ---------- */
+  .feed{display:flex; flex-direction:column}
+  .item{
+    display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px;
+    padding:14px 16px; border-bottom:1px solid var(--line-soft);
+    position:relative;
+  }
+  .item:last-child{border-bottom:0}
+  .item:hover{background:#FDFDFC}
+  .item::before{
+    content:""; position:absolute; left:6px; top:20px;
+    width:5px; height:5px; border-radius:50%; background:var(--accent);
+  }
+  .item.read::before{display:none}
+  .item-main{padding-left:10px; min-width:0}
+  .item-top{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-3); margin-bottom:5px}
+  .src{color:var(--ink-2); font-weight:500}
+  .dot-sep{color:#D6D3D1}
+  .item h3{font-size:14px; font-weight:600; line-height:1.5; letter-spacing:-.005em}
+  .item p{
+    margin-top:5px; font-size:12px; color:var(--ink-3); line-height:1.65;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .item.read h3{font-weight:400; color:var(--ink-2)}
+  .item.read p{color:#A8A29E}
+  .item-side{display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex:none; width:104px}
+  .chip{
+    display:inline-flex; align-items:center; gap:4px;
+    height:20px; padding:0 7px; border-radius:5px; font-size:10.5px; font-weight:500;
+  }
+  .chip-ai{background:var(--accent-soft); color:var(--accent-ink)}
+  .chip-local{background:#F4F3F0; color:var(--ink-2)}
+  .rel{font-size:11px; color:var(--ink-3); font-variant-numeric:tabular-nums}
+  .rel b{color:var(--ink-2); font-weight:600}
+
+  /* ---------- 侧栏 ---------- */
+  .topic{padding:12px 16px; border-bottom:1px solid var(--line-soft)}
+  .topic:last-child{border-bottom:0}
+  .topic-head{display:flex; align-items:center; gap:8px}
+  .topic-head strong{font-size:13px; font-weight:600}
+  .pill{
+    display:inline-flex; align-items:center; height:18px; padding:0 6px; border-radius:4px;
+    font-size:10px; font-weight:500; background:var(--green-soft); color:var(--green);
+  }
+  .pill.off{background:#F4F3F0; color:var(--ink-3)}
+  .topic-actions{margin-left:auto; display:flex; gap:2px; opacity:.45; transition:opacity .15s}
+  .topic:hover .topic-actions{opacity:1}
+  .topic-actions button{display:grid; place-items:center; width:24px; height:24px; border-radius:5px; color:var(--ink-3)}
+  .topic-actions button:hover{background:#F4F3F0; color:var(--ink)}
+  .chips{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px}
+  .kw{
+    display:inline-flex; align-items:center; gap:4px;
+    height:22px; padding:0 8px; border-radius:6px;
+    background:#F7F6F4; color:var(--ink-2); font-size:11px;
+    border:1px solid #EFEDEA;
+  }
+  .kw.muted{color:var(--ink-3); background:transparent; border-style:dashed}
+  .topic.empty .chips{margin-top:6px}
+
+  /* ---------- 表单 ---------- */
+  .form{display:grid; gap:8px; padding:14px 16px}
+  .field{
+    width:100%; height:32px; padding:0 10px;
+    border:1px solid var(--line); border-radius:var(--r-ctl);
+    background:#FDFDFC; color:var(--ink); font-size:12px; outline:none;
+  }
+  .field::placeholder{color:#B5B0A9}
+  .field:focus{border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px rgba(37,99,235,.10)}
+  .form-row{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .form .btn{margin-top:2px; justify-self:start}
+
+  /* ---------- 采集结果 ---------- */
+  .collect{padding:12px 16px; border-bottom:1px solid var(--line-soft); background:#FDFDFC}
+  .collect-top{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-2)}
+  .collect-top .chip-local{background:#EFEDEA}
+  .collect-list{display:grid; gap:6px; margin-top:9px}
+  .collect-item{display:flex; align-items:baseline; gap:7px; min-width:0; font-size:12px; color:var(--ink-2); text-decoration:none}
+  .collect-item:hover strong{color:var(--accent-ink)}
+  .collect-item strong{flex:1; min-width:0; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .collect-item span{font-size:10.5px; color:var(--ink-3); flex:none}
+
+  /* ---------- 来源 ---------- */
+  .sources{display:flex; flex-wrap:wrap; gap:6px; padding:14px 16px}
+  .sources .kw{background:#fff}
+
+  /* ---------- 页脚 ---------- */
+  .footer{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    margin-top:28px; padding-top:18px; border-top:1px solid var(--line);
+    font-size:11px; color:var(--ink-3);
+  }
+  .steps{display:flex; align-items:center; gap:0; flex-wrap:wrap}
+  .step{display:flex; align-items:center; gap:6px}
+  .step i{width:5px; height:5px; border-radius:50%; background:#D6D3D1}
+  .step.done{color:var(--ink-2)}
+  .step.done i{background:var(--green)}
+  .step.current{color:var(--ink); font-weight:500}
+  .step.current i{background:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .step-line{width:22px; height:1px; background:var(--line); margin:0 9px}
+
+  @media (max-width:920px){
+    .grid{grid-template-columns:minmax(0,1fr)}
+    .stat-row{grid-template-columns:minmax(0,1fr)}
+    .stat{justify-content:flex-start; gap:10px}
+    .page-head{flex-direction:column; align-items:flex-start}
+    .item-side{display:none}
+    .wrap{padding:20px 16px 40px}
+    .card{overflow:hidden; min-width:0}
+    .card-head{flex-wrap:wrap; row-gap:8px}
+    .card-head h2{flex:1 1 auto}
+    .footer{flex-direction:column; align-items:flex-start; gap:10px}
+  }
+  @media (max-width:600px){
+    .brand-sub{display:none}
+    .topbar{padding:0 16px}
+    .status{padding:0 9px}
+    .page-head h1{font-size:20px}
+    .stat{padding:12px 14px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a9 9 0 1 1-6.36 2.64"/>
+        <path d="M12 7.2a4.8 4.8 0 1 0 3.4 1.4"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+    </span>
+    <span class="brand-name">SignalDock</span>
+    <span class="brand-sub">AI 信息雷达</span>
+  </div>
+  <div class="topbar-right">
+    <span class="status online"><i></i>服务已连接</span>
+    <button class="icon-btn" aria-label="重新检查">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V10h-6.2"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="page-head">
+    <div>
+      <h1>信息流</h1>
+      <p>围绕 3 个关注主题持续收集，合并重复内容，识别变化后交给你</p>
+    </div>
+    <button class="btn btn-primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      新增主题
+    </button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><span class="stat-label">今日新信息</span><span class="stat-value">12<small>条</small></span></div>
+    <div class="stat"><span class="stat-label">启用关键词</span><span class="stat-value">5<small>个</small></span></div>
+    <div class="stat"><span class="stat-label">关注主题</span><span class="stat-value">3<small>个</small></span></div>
+  </div>
+
+  <div class="grid">
+
+    <!-- 左：信息流 -->
+    <div>
+      <section class="card">
+        <div class="card-head">
+          <h2>全部信息<span class="count">4</span></h2>
+          <div class="seg"><button class="active">全部</button><button>未读 2</button></div>
+          <button class="icon-btn" aria-label="排序：按重要程度">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 4v16M4 17l3 3 3-3"/><path d="M17 20V4M14 7l3-3 3 3"/>
+            </svg>
+          </button>
+          <button class="btn btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V10h-6.2"/>
+            </svg>
+            试采一轮
+          </button>
+        </div>
+
+        <div class="feed">
+          <article class="item">
+            <div class="item-main">
+              <div class="item-top"><span class="src">知乎</span><span class="dot-sep">·</span><span>12 分钟前</span></div>
+              <h3>国产大模型开始进入企业知识库工作流</h3>
+              <p>多家厂商在同一周发布知识库产品更新，重点从「能问答」转向「能改流程」，私有化部署与权限体系成为采购硬指标。</p>
+            </div>
+            <div class="item-side">
+              <span class="chip chip-ai">AI 分析</span>
+              <span class="rel">相关性 <b>92%</b></span>
+              <button class="btn-mini">标为已读</button>
+            </div>
+          </article>
+
+          <article class="item">
+            <div class="item-main">
+              <div class="item-top"><span class="src">掘金</span><span class="dot-sep">·</span><span>48 分钟前</span></div>
+              <h3>从 RAG 到 Agent：检索层设计的五个常见误区</h3>
+              <p>切片策略、混合检索权重、重排模型的取舍，作者用三组线上指标说明为什么「向量库选型」通常不是瓶颈。</p>
+            </div>
+            <div class="item-side">
+              <span class="chip chip-ai">AI 分析</span>
+              <span class="rel">相关性 <b>88%</b></span>
+              <button class="btn-mini">标为已读</button>
+            </div>
+          </article>
+
+          <article class="item read">
+            <div class="item-main">
+              <div class="item-top"><span class="src">GitHub</span><span class="dot-sep">·</span><span>2 小时前</span></div>
+              <h3>langchain 发布 v0.3.27，重构 tool 调用链路</h3>
+              <p>本次更新移除了旧的 AgentExecutor 兼容层，新增结构化输出校验，升级前需检查自定义工具的入参签名。</p>
+            </div>
+            <div class="item-side">
+              <span class="chip chip-local">本地分析</span>
+              <span class="rel">相关性 <b>76%</b></span>
+            </div>
+          </article>
+
+          <article class="item read">
+            <div class="item-main">
+              <div class="item-top"><span class="src">微博</span><span class="dot-sep">·</span><span>3 小时前</span></div>
+              <h3>某厂商开源 32B 推理模型，评测分数引发讨论</h3>
+              <p>社区复现结果与官方榜单存在差距，争议集中在测试集污染与推理成本口径上。</p>
+            </div>
+            <div class="item-side">
+              <span class="chip chip-local">本地分析</span>
+              <span class="rel">相关性 <b>71%</b></span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <!-- 右：侧栏 -->
+    <div>
+      <section class="card">
+        <div class="card-head">
+          <h2>当前关注<span class="count">3</span></h2>
+          <span style="font-size:11px;color:var(--ink-3)">2 个启用</span>
+        </div>
+
+        <div class="topic">
+          <div class="topic-head">
+            <strong>人工智能</strong>
+            <span class="pill">启用</span>
+            <span class="topic-actions">
+              <button aria-label="编辑"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+              <button aria-label="暂停"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 5v14M15 5v14"/></svg></button>
+              <button aria-label="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"/></svg></button>
+            </span>
+          </div>
+          <div class="chips">
+            <span class="kw">大模型</span><span class="kw">RAG</span><span class="kw">Agent</span>
+          </div>
+        </div>
+
+        <div class="topic">
+          <div class="topic-head">
+            <strong>部署运维</strong>
+            <span class="pill">启用</span>
+            <span class="topic-actions">
+              <button aria-label="编辑"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+              <button aria-label="暂停"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 5v14M15 5v14"/></svg></button>
+              <button aria-label="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"/></svg></button>
+            </span>
+          </div>
+          <div class="chips">
+            <span class="kw">Docker</span><span class="kw">Vercel</span>
+          </div>
+        </div>
+
+        <div class="topic">
+          <div class="topic-head">
+            <strong>消费电子</strong>
+            <span class="pill off">暂停</span>
+            <span class="topic-actions">
+              <button aria-label="编辑"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+              <button aria-label="启用"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l11 7-11 7V5z"/></svg></button>
+              <button aria-label="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"/></svg></button>
+            </span>
+          </div>
+          <div class="chips">
+            <span class="kw muted">无启用关键词</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>新增主题</h2>
+        </div>
+        <div class="form">
+          <input class="field" placeholder="主题名称，例如：人工智能" />
+          <div class="form-row">
+            <input class="field" placeholder="关键词，逗号分隔" />
+            <input class="field" placeholder="排除词（可选）" />
+          </div>
+          <button class="btn btn-ghost">保存主题</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>最近一次采集</h2>
+          <span style="font-size:11px;color:var(--ink-3)">3 条结果 · 1 重复</span>
+        </div>
+        <div class="collect">
+          <div class="collect-top">
+            <span class="chip chip-local">fixture</span>
+            <span>已入库 2 条，识别 1 处变化</span>
+          </div>
+          <div class="collect-list">
+            <a class="collect-item" href="#"><span>知乎</span><strong>国产大模型开始进入企业知识库工作流</strong></a>
+            <a class="collect-item" href="#"><span>掘金</span><strong>从 RAG 到 Agent：检索层设计的五个常见误区</strong></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>信息来源</h2>
+          <span style="font-size:11px;color:var(--ink-3)">6 个</span>
+        </div>
+        <div class="sources">
+          <span class="kw">百度</span><span class="kw">B 站</span><span class="kw">微博</span>
+          <span class="kw">知乎</span><span class="kw">掘金</span><span class="kw">GitHub</span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="steps">
+      <span class="step done"><i></i>关注主题</span><span class="step-line"></span>
+      <span class="step done"><i></i>信息源采集</span><span class="step-line"></span>
+      <span class="step current"><i></i>去重与变化检测</span><span class="step-line"></span>
+      <span class="step"><i></i>AI 分析</span>
+    </div>
+    <span>SignalDock · 第一版</span>
+  </footer>
+
+</main>
+
+</body>
+</html>
