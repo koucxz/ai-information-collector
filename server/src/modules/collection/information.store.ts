@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
+import { fallbackAnalyze } from '../analysis/analysis.service.js';
 import type { SearchResult } from './collection.types.js';
 import { normalizeUrl } from './normalize.js';
 
@@ -12,17 +13,39 @@ const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: S
 
 export const informationStore = {
   saveResults(results: SearchResult[]) {
-    const insert = db.prepare('INSERT OR IGNORE INTO information_items (id, source, source_name, keyword, title, summary, content, url, published_at, collected_at, fingerprint, dedupe_key, event_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const insert = db.prepare('INSERT OR IGNORE INTO information_items (id, source, source_name, keyword, title, summary, content, url, published_at, collected_at, fingerprint, dedupe_key, event_key, relevance_score, importance_score, ai_status, analysis_summary, analysis_reason, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     let saved = 0;
-    for (const item of results) {
-      const timestamp = new Date().toISOString();
-      const normalizedUrl = normalizeUrl(item.url);
-      const dedupeKey = dedupeKeyFor(item);
-      const result = insert.run(randomUUID(), item.source, item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, dedupeKey, eventKeyFor(item.title), timestamp, timestamp);
-      saved += Number(result.changes);
-      db.prepare('UPDATE information_items SET source_name = ?, keyword = ?, title = ?, summary = ?, content = ?, url = ?, published_at = ?, collected_at = ?, fingerprint = ?, event_key = ?, updated_at = ? WHERE source = ? AND dedupe_key = ?').run(item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, eventKeyFor(item.title), timestamp, item.source, dedupeKey);
+    // 一轮多源采集可能上百条，逐条提交太慢，包一个事务
+    db.exec('BEGIN');
+    try {
+      for (const item of results) {
+        const timestamp = new Date().toISOString();
+        const normalizedUrl = normalizeUrl(item.url);
+        const dedupeKey = dedupeKeyFor(item);
+        // 入库即用本地规则给一个基础分：否则信息流里全是 0%，排序也失去意义
+        const baseline = fallbackAnalyze(item);
+        const result = insert.run(randomUUID(), item.source, item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, dedupeKey, eventKeyFor(item.title), baseline.relevanceScore, baseline.importanceScore, baseline.provider, baseline.summary, baseline.reason, timestamp, timestamp);
+        saved += Number(result.changes);
+        db.prepare('UPDATE information_items SET source_name = ?, keyword = ?, title = ?, summary = ?, content = ?, url = ?, published_at = ?, collected_at = ?, fingerprint = ?, event_key = ?, updated_at = ? WHERE source = ? AND dedupe_key = ?').run(item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, eventKeyFor(item.title), timestamp, item.source, dedupeKey);
+      }
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
     }
     return { saved, duplicates: results.length - saved };
+  },
+  /** 历史数据兜底：接入多源之前入库的条目分数都是 0，启动时按同一套规则补一次 */
+  backfillScores() {
+    const rows = db.prepare('SELECT id, keyword, title, summary, content FROM information_items WHERE relevance_score = 0 AND importance_score = 0').all() as unknown as Array<{ id: string; keyword: string; title: string; summary: string; content: string }>;
+    if (rows.length === 0) return 0;
+    const update = db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?');
+    const timestamp = new Date().toISOString();
+    for (const row of rows) {
+      const baseline = fallbackAnalyze(row);
+      update.run(baseline.relevanceScore, baseline.importanceScore, baseline.provider, baseline.summary, baseline.reason, timestamp, row.id);
+    }
+    return rows.length;
   },
   list() { return (db.prepare('SELECT * FROM information_items ORDER BY collected_at DESC').all() as unknown as Record<string, unknown>[]).map(mapRow); },
   feed(options: FeedOptions) {
