@@ -3,15 +3,15 @@ import type { FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Toaster, toast } from 'sonner';
 
-const sources = ['百度', 'B 站', '微博', '知乎', '掘金', 'GitHub'];
 type ServiceStatus = 'checking' | 'online' | 'offline';
+type SourceInfo = { key: string; name: string; kind: string; description: string; enabled: boolean };
 type Keyword = { id: string; value: string; enabled: boolean };
 type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; enabled: boolean; createdAt: string; keywords: Keyword[] };
 type TopicDraft = { name: string; aliases: string; excludeWords: string };
 type CollectionPreview = {
   data: Array<{ sourceName: string; title: string; summary: string; url: string }>;
   errors: Array<{ source: string; keyword: string; message: string }>;
-  stats: { topics: number; keywords: number; results: number };
+  stats: { topics: number; keywords: number; results: number; bySource?: Record<string, number> };
   persistence?: { saved: number; duplicates: number; snapshots: number; changes: number };
 };
 type FeedItem = { id: string; sourceName: string; source: string; title: string; summary: string; importanceScore: number; relevanceScore: number; isRead: boolean; aiStatus: string; collectedAt: string; publishedAt: string | null };
@@ -85,6 +85,7 @@ function App() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [feedSort, setFeedSort] = useState<'latest' | 'importance'>('latest');
+  const [sourceList, setSourceList] = useState<SourceInfo[]>([]);
   /* 每个异步操作一个 key，按钮据此显示 spinner 并禁用，避免重复提交 */
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [confirmOptions, setConfirmOptions] = useState<ConfirmOptions | null>(null);
@@ -155,7 +156,17 @@ function App() {
     } catch { /* 保留本地缓存 */ }
   };
 
-  useEffect(() => { void checkHealth(); void loadTopics(); void loadFeed(); void loadLastCollection(); }, [feedSort, unreadOnly]);
+  // 信息源清单由后端下发，前端不再写死「百度/B站/微博…」
+  const loadSources = async () => {
+    try {
+      const response = await fetch(apiUrl('/api/collect/sources'), { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { data: SourceInfo[] };
+      setSourceList(payload.data);
+    } catch { /* 拿不到就只显示采集到的来源 */ }
+  };
+
+  useEffect(() => { void checkHealth(); void loadTopics(); void loadFeed(); void loadLastCollection(); void loadSources(); }, [feedSort, unreadOnly]);
 
   const request = async (url: string, options: RequestInit = {}) => {
     const response = await fetch(apiUrl(url), { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -245,7 +256,7 @@ function App() {
     }
     setKeywordDrafts((current) => ({ ...current, [topic.id]: value }));
   };
-  const previewCollection = async () => { setCollecting(true); try { const response = await fetch(apiUrl('/api/collect/preview?source=fixture&persist=true')); const payload = await response.json() as CollectionPreview & { error?: string }; if (!response.ok) throw new Error(payload.error ?? '采集失败'); setCollection(payload); try { localStorage.setItem('signaldock:lastCollection', JSON.stringify(payload)); } catch { /* 存储不可用时仅本次有效 */ } setError(''); await loadFeed(); toast.success(`采集完成，新增 ${payload.persistence?.saved ?? payload.data.length} 条`); } catch (caught) { toast.error(netMessage(caught, '采集失败')); } finally { setCollecting(false); } };
+  const previewCollection = async () => { setCollecting(true); try { const response = await fetch(apiUrl('/api/collect/preview?source=all&persist=true')); const payload = await response.json() as CollectionPreview & { error?: string }; if (!response.ok) throw new Error(payload.error ?? '采集失败'); setCollection(payload); try { localStorage.setItem('signaldock:lastCollection', JSON.stringify(payload)); } catch { /* 存储不可用时仅本次有效 */ } setError(''); await loadFeed(); toast.success(`采集完成：命中 ${payload.stats.results} 条，新增 ${payload.persistence?.saved ?? payload.data.length} 条`); } catch (caught) { toast.error(netMessage(caught, '采集失败')); } finally { setCollecting(false); } };
   const markRead = (id: string) => { void run(`read:${id}`, async () => { try { await fetch(apiUrl(`/api/information/${id}/read`), { method: 'PATCH' }); await loadFeed(); } catch (caught) { toast.error(netMessage(caught, '标记已读失败')); } }); };
   const toggleKeyword = (topicId: string, keyword: Keyword) => { void run(`kw:toggle:${keyword.id}`, async () => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !keyword.enabled }) }); await loadTopics(); } catch (caught) { toast.error(netMessage(caught, '关键词状态更新失败')); } }); };
   const deleteKeyword = (topicId: string, keyword: Keyword) => { void run(`kw:del:${keyword.id}`, async () => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'DELETE' }); await loadTopics(); toast.success(`已删除关键词「${keyword.value}」`); } catch (caught) { toast.error(netMessage(caught, '关键词删除失败')); } }); };
@@ -486,9 +497,14 @@ const statusLabel = { checking: '正在连接服务', online: '服务已连接',
               {collection ? (
                 <div className="collect">
                   <div className="collect-top">
-                    <span className="chip chip-local">fixture</span>
+                    <span className="chip chip-local">{collection.stats.bySource ? `${Object.keys(collection.stats.bySource).length} 个来源` : 'fixture'}</span>
                     <span>{collection.persistence ? `已入库 ${collection.persistence.saved} 条，识别 ${collection.persistence.changes} 处变化` : `${collection.stats.keywords} 个关键词，匹配 ${collection.data.length} 条`}</span>
                   </div>
+                  {collection.stats.bySource && Object.keys(collection.stats.bySource).length > 0 && (
+                    <p className="collect-by">
+                      {Object.entries(collection.stats.bySource).map(([key, count]) => `${sourceList.find((source) => source.key === key)?.name ?? key} ${count}`).join(' · ')}
+                    </p>
+                  )}
                   <div className="collect-list">
                     {collection.data.slice(0, 4).map((item) => (
                       <a className="collect-item" href={item.url} target="_blank" rel="noreferrer" key={item.url}>
@@ -505,8 +521,17 @@ const statusLabel = { checking: '正在连接服务', online: '服务已连接',
             </section>
 
             <section className="card">
-              <div className="card-head"><h2>信息来源</h2><span className="head-meta">{sources.length} 个</span></div>
-              <div className="sources">{sources.map((source) => <span className="kw" key={source}>{source}</span>)}</div>
+              <div className="card-head"><h2>信息来源</h2><span className="head-meta">{sourceList.length} 个</span></div>
+              <div className="sources">
+                {sourceList.map((source) => {
+                  const count = collection?.stats.bySource?.[source.key];
+                  return (
+                    <span className="kw" key={source.key} title={`${source.description}${count ? ` · 本轮 ${count} 条` : ''}`}>
+                      {source.name}{count ? ` ${count}` : ''}
+                    </span>
+                  );
+                })}
+              </div>
             </section>
           </div>
         </div>

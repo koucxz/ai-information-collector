@@ -241,6 +241,7 @@ h1, h2, h3, p { margin: 0; }
 .form .btn { justify-self: start; margin-top: 2px; }
 .collect { padding: 12px 16px; background: #fdfdfc; border-radius: 0 0 var(--r-card) var(--r-card); }
 .collect-top { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+.collect-by { margin-top: 6px; font-size: 11px; color: var(--ink-3); line-height: 1.5; }
 .collect-top .chip-local { background: #efedea; }
 .collect-list { display: grid; gap: 6px; margin-top: 9px; }
 .collect-item { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 12px; color: var(--ink-2); text-decoration: none; }
