@@ -10,6 +10,10 @@
 
 SignalDock 按照用户设置的关注主题，从掘金、36氪、11 家中文科技媒体的 RSS、V2EX 与 Hacker News 收集公开信息，完成去重、事件合并、变化检测和 AI 摘要，并提供可追溯的信息流。
 
+## 项目演示
+
+![SignalDock 核心业务流程：配置主题、试采、分析结果与重要度排序](screenshots/signaldock-workflow.gif)
+
 ## 功能特性
 
 - 关注主题、关键词、别名和排除词管理
