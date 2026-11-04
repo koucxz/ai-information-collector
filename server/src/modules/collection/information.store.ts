@@ -63,7 +63,11 @@ export const informationStore = {
     const order = options.sort === 'importance' ? 'importance_score DESC, COALESCE(published_at, collected_at) DESC' : 'COALESCE(published_at, collected_at) DESC';
     const total = Number((db.prepare(`SELECT COUNT(*) AS count FROM information_items ${where}`).get(...params) as { count: number }).count);
     const rows = db.prepare(`SELECT * FROM information_items ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, options.pageSize, (options.page - 1) * options.pageSize) as unknown as Record<string, unknown>[];
-    return { data: rows.map(mapRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
+    // 首页指标要按全库算，不能只看当前这一页
+    const unreadTotal = Number((db.prepare('SELECT COUNT(*) AS count FROM information_items WHERE is_read = 0').get() as { count: number }).count);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTotal = Number((db.prepare('SELECT COUNT(*) AS count FROM information_items WHERE substr(collected_at, 1, 10) = ?').get(today) as { count: number }).count);
+    return { data: rows.map(mapRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize), unreadTotal, todayTotal };
   },
   findById(id: string) { const row = db.prepare('SELECT * FROM information_items WHERE id = ?').get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   markRead(id: string) { return db.prepare('UPDATE information_items SET is_read = 1, updated_at = ? WHERE id = ?').run(new Date().toISOString(), id).changes > 0; },

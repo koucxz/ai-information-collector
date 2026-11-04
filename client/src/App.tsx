@@ -85,6 +85,8 @@ function App() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [feedSort, setFeedSort] = useState<'latest' | 'importance'>('latest');
+  const [feedMeta, setFeedMeta] = useState({ page: 1, total: 0, totalPages: 1, unread: 0, today: 0 });
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sourceList, setSourceList] = useState<SourceInfo[]>([]);
   /* 每个异步操作一个 key，按钮据此显示 spinner 并禁用，避免重复提交 */
   const [pending, setPending] = useState<Record<string, boolean>>({});
@@ -144,7 +146,23 @@ function App() {
       setError('');
     } catch { setError('主题加载失败，请确认后端服务已启动。'); }
   };
-  const loadFeed = async () => { try { const query = new URLSearchParams({ page: '1', pageSize: '20', sort: feedSort, ...(unreadOnly ? { unread: 'true' } : {}) }); const response = await fetch(apiUrl(`/api/information?${query}`)); if (!response.ok) throw new Error('信息流加载失败'); const payload = await response.json() as { data: FeedItem[] }; setFeed(payload.data); } catch (caught) { setError(netMessage(caught, '信息流加载失败')); } };
+  // 采集改成多源后一次可能几百条，按页取、点「加载更多」追加，未读/今日数由后端按全库给
+  const loadFeed = async (page = 1, append = false) => {
+    try {
+      const query = new URLSearchParams({ page: String(page), pageSize: '20', sort: feedSort, ...(unreadOnly ? { unread: 'true' } : {}) });
+      const response = await fetch(apiUrl(`/api/information?${query}`));
+      if (!response.ok) throw new Error('信息流加载失败');
+      const payload = await response.json() as { data: FeedItem[]; total: number; totalPages: number; unreadTotal: number; todayTotal: number };
+      setFeed((current) => (append ? [...current, ...payload.data] : payload.data));
+      setFeedMeta({ page, total: payload.total, totalPages: payload.totalPages, unread: payload.unreadTotal, today: payload.todayTotal });
+    } catch (caught) { setError(netMessage(caught, '信息流加载失败')); }
+  };
+
+  const loadMore = () => {
+    if (loadingMore || feedMeta.page >= feedMeta.totalPages) return;
+    setLoadingMore(true);
+    void loadFeed(feedMeta.page + 1, true).finally(() => setLoadingMore(false));
+  };
 
   // 最近一次采集存在服务端，换设备或刷新后仍能看到；失败时退回本地缓存
   const loadLastCollection = async () => {
@@ -257,7 +275,7 @@ function App() {
     setKeywordDrafts((current) => ({ ...current, [topic.id]: value }));
   };
   const previewCollection = async () => { setCollecting(true); try { const response = await fetch(apiUrl('/api/collect/preview?source=all&persist=true')); const payload = await response.json() as CollectionPreview & { error?: string }; if (!response.ok) throw new Error(payload.error ?? '采集失败'); setCollection(payload); try { localStorage.setItem('signaldock:lastCollection', JSON.stringify(payload)); } catch { /* 存储不可用时仅本次有效 */ } setError(''); await loadFeed(); toast.success(`采集完成：命中 ${payload.stats.results} 条，新增 ${payload.persistence?.saved ?? payload.data.length} 条`); } catch (caught) { toast.error(netMessage(caught, '采集失败')); } finally { setCollecting(false); } };
-  const markRead = (id: string) => { void run(`read:${id}`, async () => { try { await fetch(apiUrl(`/api/information/${id}/read`), { method: 'PATCH' }); await loadFeed(); } catch (caught) { toast.error(netMessage(caught, '标记已读失败')); } }); };
+  const markRead = (id: string) => { void run(`read:${id}`, async () => { try { await fetch(apiUrl(`/api/information/${id}/read`), { method: 'PATCH' }); setFeed((current) => current.map((item) => (item.id === id ? { ...item, isRead: true } : item))); setFeedMeta((meta) => ({ ...meta, unread: Math.max(0, meta.unread - 1) })); } catch (caught) { toast.error(netMessage(caught, '标记已读失败')); } }); };
   const toggleKeyword = (topicId: string, keyword: Keyword) => { void run(`kw:toggle:${keyword.id}`, async () => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !keyword.enabled }) }); await loadTopics(); } catch (caught) { toast.error(netMessage(caught, '关键词状态更新失败')); } }); };
   const deleteKeyword = (topicId: string, keyword: Keyword) => { void run(`kw:del:${keyword.id}`, async () => { try { await request(`/api/topics/${topicId}/keywords/${keyword.id}`, { method: 'DELETE' }); await loadTopics(); toast.success(`已删除关键词「${keyword.value}」`); } catch (caught) { toast.error(netMessage(caught, '关键词删除失败')); } }); };
 
@@ -270,13 +288,8 @@ const statusLabel = { checking: '正在连接服务', online: '服务已连接',
   const enabledTopics = topics.filter((topic) => topic.enabled).length;
   const enabledKeywords = topics.reduce((count, topic) => count + topic.keywords.filter((keyword) => keyword.enabled).length, 0);
   const draftKeywords = splitInput(draft.aliases);
-  const unreadCount = feed.filter((item) => !item.isRead).length;
-  // 设计稿第一条指标是「今日新信息」，按入库时间落在今天来算
-  const todayNew = feed.filter((item) => {
-    const stamp = new Date(item.collectedAt);
-    const now = new Date();
-    return stamp.getFullYear() === now.getFullYear() && stamp.getMonth() === now.getMonth() && stamp.getDate() === now.getDate();
-  }).length;
+  const unreadCount = feedMeta.unread;
+  const todayNew = feedMeta.today;
   // 启用的排在前面，暂停的沉到底部（设计稿的顺序）
   const sortedTopics = [...topics].sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.createdAt.localeCompare(b.createdAt));
 
@@ -318,7 +331,7 @@ const statusLabel = { checking: '正在连接服务', online: '服务已连接',
         <div className="grid">
           <section className="card feed-card">
             <div className="card-head">
-              <h2>全部信息<span className="count">{feed.length}</span></h2>
+              <h2>全部信息<span className="count">{feedMeta.total}</span></h2>
               <div className="seg">
                 <button className={unreadOnly ? '' : 'active'} onClick={() => setUnreadOnly(false)}>全部</button>
                 <button className={unreadOnly ? 'active' : ''} onClick={() => setUnreadOnly(true)}>未读{unreadCount > 0 ? ` ${unreadCount}` : ''}</button>
@@ -361,6 +374,13 @@ const statusLabel = { checking: '正在连接服务', online: '服务已连接',
                   </div>
                 </article>
               ))}
+              {feedMeta.page < feedMeta.totalPages && (
+                <div className="load-more">
+                  <button className="btn btn-ghost" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? <IconSpinner /> : null}{loadingMore ? '加载中…' : `加载更多（还有 ${feedMeta.total - feed.length} 条）`}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 
