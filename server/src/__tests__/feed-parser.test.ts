@@ -46,7 +46,7 @@ describe('feed parser', () => {
 describe('source registry', () => {
   it('expands all into the default multi-source set', () => {
     const adapters = resolveAdapters('all');
-    expect(adapters?.map((adapter) => adapter.source)).toEqual(['juejin', 'kr36', 'so360', 'rss', 'v2ex', 'hackernews']);
+    expect(adapters?.map((adapter) => adapter.source)).toEqual(['juejin', 'kr36', 'rss', 'v2ex', 'hackernews']);
   });
 
   it('accepts comma separated sources and rejects unknown ones', () => {

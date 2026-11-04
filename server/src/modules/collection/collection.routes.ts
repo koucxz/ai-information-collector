@@ -19,16 +19,19 @@ collectionRouter.get('/sources', async (request, response) => {
   const keyword = typeof request.query.keyword === 'string' && request.query.keyword.trim()
     ? request.query.keyword.trim()
     : fallbackKeyword ?? '人工智能';
-  const keys = (typeof request.query.source === 'string' ? request.query.source : 'all');
+  // 不指定 source 时把所有注册的源都探一遍（包括默认集合之外的 360 搜索）
+  const keys = typeof request.query.source === 'string' && request.query.source ? request.query.source : knownSources().join(',');
   const adapters = resolveAdapters(keys) ?? [];
   const probe = await Promise.all(
     adapters.map(async (adapter) => {
       const startedAt = Date.now();
       try {
         const items = await adapter.search(keyword);
-        return { key: adapter.source, name: adapter.sourceName, ok: true, count: items.length, ms: Date.now() - startedAt, sample: items[0]?.title ?? null, error: null };
+        // 订阅型源的子源失败不会抛错，单独取出来，否则「0 条」看不出原因
+        const health = adapter.health ? await adapter.health().catch(() => null) : null;
+        return { key: adapter.source, name: adapter.sourceName, ok: items.length > 0 || !health?.failures?.length, count: items.length, ms: Date.now() - startedAt, sample: items[0]?.title ?? null, error: null, failures: health?.failures ?? [] };
       } catch (error) {
-        return { key: adapter.source, name: adapter.sourceName, ok: false, count: 0, ms: Date.now() - startedAt, sample: null, error: error instanceof Error ? error.message : '请求失败' };
+        return { key: adapter.source, name: adapter.sourceName, ok: false, count: 0, ms: Date.now() - startedAt, sample: null, error: error instanceof Error ? error.message : '请求失败', failures: [] };
       }
     })
   );

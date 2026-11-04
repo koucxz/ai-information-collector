@@ -2,7 +2,7 @@ import type { SearchResult, SourceAdapter } from './collection.types.js';
 import { createLimiter, fetchText } from './http.js';
 import { normalizeResult, stripHtml } from './normalize.js';
 
-const PER_QUERY = 10;
+const PER_QUERY = 8;
 const PAGES = 2;
 
 // 360 的结果标题最终都挂在 <a data-mdurl="真实地址"> 上，href 是 so.com 的跳转链接
@@ -11,21 +11,31 @@ const ANCHOR_PATTERN = /<a\b[^>]*data-mdurl="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)
 const DESC_PATTERN = /<p[^>]*class="[^"]*res-desc[^"]*"[^>]*>([\s\S]*?)<\/p>/i;
 const INTERNAL_HOST = /(^|\.)(so|360|360kan|360tres|360kuai)\.com$/i;
 const NOISE_TITLE = /^(查看更多|更多|广告|相关搜索|其他人还搜了)$/;
+// 搜索结果里混着词典、招聘、电商和官网首页，这些不是「信息」，直接丢掉
+const LOW_VALUE_HOST = /(^|\.)(youdao|iciba|hujiang|dict\.cn|zdic|baike|zhipin|liepin|51job|zhaopin|taobao|tmall|jd|1688|amazon|ctrip|qcc|tianyancha)\.(com|cn|net)$/i;
 
 // 标题里的 <em> 是关键词高亮，直接删掉这些行内标签，别让 stripHtml 把它变成空格
 const stripInline = (value: string) => stripHtml(value.replace(/<\/?(em|b|strong|i|span|font)\b[^>]*>/gi, ''));
+
+const isWorthKeeping = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    if (INTERNAL_HOST.test(parsed.hostname)) return false;
+    if (LOW_VALUE_HOST.test(parsed.hostname)) return false;
+    // 指向站点首页的，基本都是广告或 SEO 落地页
+    if (parsed.pathname === '/' || parsed.pathname === '') return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 export const parseSo360Results = (html: string, keyword: string): SearchResult[] => {
   const results: SearchResult[] = [];
   const seen = new Set<string>();
   for (const match of html.matchAll(ANCHOR_PATTERN)) {
     const url = match[1].replace(/&amp;/g, '&');
-    try {
-      // 站内栏目（导航、视频、百科聚合页）不是信息源
-      if (INTERNAL_HOST.test(new URL(url).hostname)) continue;
-    } catch {
-      continue;
-    }
+    if (!isWorthKeeping(url)) continue;
     const title = stripInline(match[2]);
     if (title.length < 6 || NOISE_TITLE.test(title)) continue;
     if (seen.has(url)) continue;
