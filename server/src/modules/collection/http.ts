@@ -32,8 +32,15 @@ export const fetchText = async (url: string, options: { timeoutMs?: number; acce
   return response.text();
 };
 
-export const fetchJson = async <T>(url: string, options: { timeoutMs?: number; headers?: Record<string, string> } = {}): Promise<T> => {
-  const response = await withTimeout(url, { headers: { Accept: 'application/json', ...options.headers } }, options.timeoutMs);
+export const fetchJson = async <T>(
+  url: string,
+  options: { timeoutMs?: number; headers?: Record<string, string>; method?: string; body?: string } = {}
+): Promise<T> => {
+  const response = await withTimeout(
+    url,
+    { method: options.method ?? 'GET', body: options.body, headers: { Accept: 'application/json', ...options.headers } },
+    options.timeoutMs
+  );
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return (await response.json()) as T;
 };

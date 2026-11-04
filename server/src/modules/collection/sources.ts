@@ -1,9 +1,10 @@
 import { BaiduAdapter } from './baidu.adapter.js';
-import { BingNewsAdapter } from './bing-news.adapter.js';
 import type { SourceAdapter } from './collection.types.js';
 import { FixtureAdapter } from './fixture.adapter.js';
 import { HackerNewsAdapter } from './hackernews.adapter.js';
+import { JuejinAdapter } from './juejin.adapter.js';
 import { RssFeedAdapter } from './rss-feed.adapter.js';
+import { V2exAdapter } from './v2ex.adapter.js';
 
 export type SourceInfo = {
   key: string;
@@ -15,20 +16,22 @@ export type SourceInfo = {
 
 /** 前端「信息来源」直接用这份清单渲染，不再写死 */
 export const SOURCE_CATALOG: SourceInfo[] = [
-  { key: 'bing', name: '必应新闻', kind: 'search', description: '按关键词搜索新闻，中英文都覆盖', enabled: true },
+  { key: 'juejin', name: '掘金', kind: 'search', description: '按关键词搜索中文技术文章', enabled: true },
+  { key: 'rss', name: '站点 RSS', kind: 'feed', description: 'IT之家 / 极客公园 / 爱范儿 / 量子位 / InfoQ / 开源中国 / 少数派 / Solidot', enabled: true },
+  { key: 'v2ex', name: 'V2EX', kind: 'search', description: '开发者社区讨论', enabled: true },
   { key: 'hackernews', name: 'Hacker News', kind: 'search', description: '英文技术社区最新讨论', enabled: true },
-  { key: 'rss', name: '站点 RSS', kind: 'feed', description: '36氪 / IT之家 / 少数派 / Solidot', enabled: true },
   { key: 'baidu', name: '百度', kind: 'legacy', description: '网页抓取，风控拦截时本轮为空', enabled: true },
   { key: 'fixture', name: '本地测试数据', kind: 'demo', description: '离线演示用的固定样例', enabled: true }
 ];
 
 // 采集时默认跑的源；fixture / baidu 需要显式指定
-export const DEFAULT_SOURCE_KEYS = ['bing', 'hackernews', 'rss'];
+export const DEFAULT_SOURCE_KEYS = ['juejin', 'rss', 'v2ex', 'hackernews'];
 
 const registry: Record<string, () => SourceAdapter> = {
-  bing: () => new BingNewsAdapter(),
-  hackernews: () => new HackerNewsAdapter(),
+  juejin: () => new JuejinAdapter(),
   rss: rssSingleton,
+  v2ex: () => new V2exAdapter(),
+  hackernews: () => new HackerNewsAdapter(),
   baidu: () => new BaiduAdapter(),
   fixture: () => new FixtureAdapter()
 };

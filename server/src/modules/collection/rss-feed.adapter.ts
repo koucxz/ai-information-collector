@@ -5,9 +5,14 @@ import { parseFeed, type FeedItem } from './rss.js';
 
 type FeedConfig = { name: string; url: string };
 
+// 只保留实测能稳定返回 RSS 的站点：36氪 feed 已变成 HTML、虎嗅 504、机器之心返回空
 const FEEDS: FeedConfig[] = [
-  { name: '36氪', url: 'https://36kr.com/feed' },
   { name: 'IT之家', url: 'https://www.ithome.com/rss/' },
+  { name: '极客公园', url: 'https://www.geekpark.net/rss' },
+  { name: '爱范儿', url: 'https://www.ifanr.com/feed' },
+  { name: '量子位', url: 'https://www.qbitai.com/feed' },
+  { name: 'InfoQ', url: 'https://www.infoq.cn/feed' },
+  { name: '开源中国', url: 'https://www.oschina.net/news/rss' },
   { name: '少数派', url: 'https://sspai.com/feed' },
   { name: 'Solidot', url: 'https://www.solidot.org/index.rss' }
 ];
@@ -17,7 +22,6 @@ const MAX_AGE_DAYS = 21;
 const PER_KEYWORD = 6;
 
 type CachedItem = FeedItem & { feed: string };
-
 type FeedSnapshot = { at: number; items: CachedItem[]; failures: string[] };
 
 // 缓存放在模块级：一次采集里 10 多个关键词共用同一份抓取结果，不重复打站点
@@ -29,7 +33,7 @@ const withinAge = (item: CachedItem) => {
   return Date.now() - new Date(item.publishedAt).getTime() <= MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 };
 
-const loadFeeds = async () => {
+const loadFeeds = async (): Promise<FeedSnapshot> => {
   if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache;
   if (inflight) return inflight;
   inflight = (async () => {

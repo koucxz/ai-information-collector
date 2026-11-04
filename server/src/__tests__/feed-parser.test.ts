@@ -46,7 +46,7 @@ describe('feed parser', () => {
 describe('source registry', () => {
   it('expands all into the default multi-source set', () => {
     const adapters = resolveAdapters('all');
-    expect(adapters?.map((adapter) => adapter.source)).toEqual(['bing', 'hackernews', 'rss']);
+    expect(adapters?.map((adapter) => adapter.source)).toEqual(['juejin', 'rss', 'v2ex', 'hackernews']);
   });
 
   it('accepts comma separated sources and rejects unknown ones', () => {
@@ -55,7 +55,7 @@ describe('source registry', () => {
   });
 
   it('exposes every catalog key in the registry', () => {
-    expect(SOURCE_CATALOG.map((source) => source.key).sort()).toEqual(['baidu', 'bing', 'fixture', 'hackernews', 'rss']);
+    expect(SOURCE_CATALOG.map((source) => source.key).sort()).toEqual(['baidu', 'fixture', 'hackernews', 'juejin', 'rss', 'v2ex']);
   });
 });
 
