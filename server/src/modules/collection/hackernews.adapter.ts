@@ -27,7 +27,9 @@ export class HackerNewsAdapter implements SourceAdapter {
   async search(keyword: string): Promise<SearchResult[]> {
     const since = Math.floor(Date.now() / 1000) - WINDOW_SECONDS;
     const url = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(keyword)}&tags=story&hitsPerPage=${PER_QUERY}&numericFilters=created_at_i%3E${since}`;
-    const payload = await fetchJson<AlgoliaResponse>(url, { timeoutMs: 9_000 });
+    // Algolia 从境内访问偶发超时，给一次重试，避免整轮采集丢掉这个源
+    const payload = await fetchJson<AlgoliaResponse>(url, { timeoutMs: 12_000 })
+      .catch(() => fetchJson<AlgoliaResponse>(url, { timeoutMs: 12_000 }));
     const hits = payload.hits ?? [];
     return hits
       .filter((hit) => hit.title)
