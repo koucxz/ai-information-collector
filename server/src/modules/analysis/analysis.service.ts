@@ -3,12 +3,23 @@ import { analysisResultSchema, type AnalysisResult, type AnalyzableInformation }
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
+const STRONG_WORDS = ['发布', '开源', '融资', '政策', '监管', '安全', '突破', '首次', '上市', '收购', '裁员'];
+
+/** 本地规则打分：标题命中 > 正文命中 > 未命中，再叠加关键词力度与新鲜度，避免所有条目同分 */
 export const fallbackAnalyze = (item: AnalyzableInformation, error?: string): AnalysisResult => {
   const text = `${item.title} ${item.summary} ${item.content}`.toLocaleLowerCase();
-  const keywordHit = text.includes(item.keyword.toLocaleLowerCase());
-  const importantWords = ['发布', '安全', '政策', '融资', '重大', '开源', '性能'];
-  const importanceScore = clamp((importantWords.some((word) => text.includes(word)) ? 0.75 : 0.45) + (keywordHit ? 0.1 : 0));
-  return { relevanceScore: keywordHit ? 0.9 : 0.35, importanceScore, summary: item.summary || item.content.slice(0, 120), reason: keywordHit ? '标题或正文直接命中关注关键词。' : '根据标题和正文做本地规则判断。', provider: 'fallback', ...(error ? { error } : {}) };
+  const keyword = item.keyword.toLocaleLowerCase();
+  const inTitle = Boolean(keyword) && item.title.toLocaleLowerCase().includes(keyword);
+  const inBody = Boolean(keyword) && text.includes(keyword);
+  const relevanceScore = clamp(inTitle ? 0.95 : inBody ? 0.85 : 0.3);
+
+  const hits = STRONG_WORDS.filter((word) => text.includes(word)).length;
+  const ageDays = item.publishedAt ? (Date.now() - new Date(item.publishedAt).getTime()) / 86_400_000 : null;
+  const freshness = ageDays === null || Number.isNaN(ageDays) ? 0.04 : ageDays <= 2 ? 0.24 : ageDays <= 7 ? 0.14 : ageDays <= 21 ? 0.05 : 0;
+  const importanceScore = clamp(0.3 + Math.min(hits, 3) * 0.12 + freshness);
+
+  const reason = inTitle ? '标题直接命中关注关键词。' : inBody ? '正文提到关注关键词。' : '未命中关键词，按时间与措辞粗略评估。';
+  return { relevanceScore: Math.round(relevanceScore * 100) / 100, importanceScore: Math.round(importanceScore * 100) / 100, summary: item.summary || item.content.slice(0, 120), reason, provider: 'fallback', ...(error ? { error } : {}) };
 };
 
 const parseModelContent = (content: string) => {

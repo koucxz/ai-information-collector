@@ -35,17 +35,21 @@ export const informationStore = {
     }
     return { saved, duplicates: results.length - saved };
   },
-  /** 历史数据兜底：接入多源之前入库的条目分数都是 0，启动时按同一套规则补一次 */
+  /** 历史数据兜底：规则升级后按同一套逻辑重算本地评分（AI 分析过的条目不动） */
   backfillScores() {
-    const rows = db.prepare('SELECT id, keyword, title, summary, content FROM information_items WHERE relevance_score = 0 AND importance_score = 0').all() as unknown as Array<{ id: string; keyword: string; title: string; summary: string; content: string }>;
+    const rows = db.prepare("SELECT id, keyword, title, summary, content, published_at, relevance_score, importance_score FROM information_items WHERE ai_status = 'fallback' OR (relevance_score = 0 AND importance_score = 0)").all() as unknown as Array<{ id: string; keyword: string; title: string; summary: string; content: string; published_at: string | null; relevance_score: number; importance_score: number }>;
     if (rows.length === 0) return 0;
     const update = db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?');
     const timestamp = new Date().toISOString();
+    let changed = 0;
     for (const row of rows) {
-      const baseline = fallbackAnalyze(row);
+      const baseline = fallbackAnalyze({ ...row, publishedAt: row.published_at });
+      const drifted = Math.abs(baseline.relevanceScore - row.relevance_score) > 0.001 || Math.abs(baseline.importanceScore - row.importance_score) > 0.001;
+      if (!drifted) continue;
       update.run(baseline.relevanceScore, baseline.importanceScore, baseline.provider, baseline.summary, baseline.reason, timestamp, row.id);
+      changed += 1;
     }
-    return rows.length;
+    return changed;
   },
   list() { return (db.prepare('SELECT * FROM information_items ORDER BY collected_at DESC').all() as unknown as Record<string, unknown>[]).map(mapRow); },
   feed(options: FeedOptions) {

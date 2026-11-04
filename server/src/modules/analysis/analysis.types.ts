@@ -8,4 +8,4 @@ export const analysisResultSchema = z.object({
 });
 
 export type AnalysisResult = z.infer<typeof analysisResultSchema> & { provider: 'ai' | 'fallback'; error?: string };
-export type AnalyzableInformation = { title: string; summary: string; content: string; keyword: string };
+export type AnalyzableInformation = { title: string; summary: string; content: string; keyword: string; publishedAt?: string | null };
