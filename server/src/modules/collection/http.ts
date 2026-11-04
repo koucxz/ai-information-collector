@@ -26,6 +26,25 @@ export const withTimeout = async (
   }
 };
 
+/**
+ * 适配器内部的串行队列：采集会对同一个源并发跑多个关键词，
+ * 搜索类站点（360/搜狗）对此非常敏感，交给队列排队并留出间隔更稳。
+ */
+export const createLimiter = (minGapMs = 300) => {
+  let tail: Promise<unknown> = Promise.resolve();
+  return <T>(task: () => Promise<T>): Promise<T> => {
+    const run = tail.then(async () => {
+      if (minGapMs > 0) await new Promise((resolve) => setTimeout(resolve, minGapMs));
+      return task();
+    });
+    tail = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  };
+};
+
 export const fetchText = async (url: string, options: { timeoutMs?: number; accept?: string } = {}): Promise<string> => {
   const response = await withTimeout(url, { headers: { Accept: options.accept ?? 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } }, options.timeoutMs);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -5,12 +5,16 @@ import { parseFeed, type FeedItem } from './rss.js';
 
 type FeedConfig = { name: string; url: string };
 
-// 只保留实测能稳定返回 RSS 的站点：36氪 feed 已变成 HTML、虎嗅 504、机器之心返回空
+// 只保留实测能稳定返回 RSS 的站点：36氪 feed 已变成 HTML、虎嗅 504、机器之心已改版
+// 36氪改走网关快讯接口（见 kr36.adapter.ts），虎嗅/机器之心的内容位由下面这几家同类媒体补上
 const FEEDS: FeedConfig[] = [
   { name: 'IT之家', url: 'https://www.ithome.com/rss/' },
   { name: '极客公园', url: 'https://www.geekpark.net/rss' },
   { name: '爱范儿', url: 'https://www.ifanr.com/feed' },
   { name: '量子位', url: 'https://www.qbitai.com/feed' },
+  { name: '钛媒体', url: 'https://www.tmtpost.com/rss' },
+  { name: '雷锋网', url: 'https://www.leiphone.com/feed' },
+  { name: '新浪科技', url: 'https://rss.sina.com.cn/tech/rollnews.xml' },
   { name: 'InfoQ', url: 'https://www.infoq.cn/feed' },
   { name: '开源中国', url: 'https://www.oschina.net/news/rss' },
   { name: '少数派', url: 'https://sspai.com/feed' },
