@@ -545,8 +545,10 @@ const statusLabel = { checking: '正在连接服务', online: '服务已连接',
               <div className="sources">
                 {sourceList.map((source) => {
                   const count = collection?.stats.bySource?.[source.key];
+                  // 本轮没参与的源（如按需启用的 360 搜索、演示数据）用虚线弱化，避免看起来像「采到 0 条」
+                  const idle = Boolean(collection?.stats.bySource) && count === undefined;
                   return (
-                    <span className="kw" key={source.key} title={`${source.description}${count ? ` · 本轮 ${count} 条` : ''}`}>
+                    <span className={`kw${idle ? ' muted' : ''}`} key={source.key} title={`${source.description}${count ? ` · 本轮 ${count} 条` : ' · 本轮未参与'}`}>
                       {source.name}{count ? ` ${count}` : ''}
                     </span>
                   );
