@@ -49,6 +49,6 @@
 - 来源快照独立于采集记录保存，来源被删除后旧选题仍可恢复和导出；会话和成本计数不进入便携备份。
 - 现有 client/public/ 与旧计划文件保留在工作区，不纳入本次提交。
 
-- 远端 main 已切换至 d2e45c6 的另一条历史，交付改推 codex/batch-editorial-auth；不覆盖远端 main。
+- 用户要求直接交付 main，已将部署目标改为 main，并移除临时分支；旧 main 历史保留在本地备份分支。
 - 已按旧版 collection_runs 表结构补上自动迁移并验证完整数据库启动，保留原始 payload；旧 ./data 部署须显式继续挂载。
 - Docker Compose 默认配置和旧 ./data 挂载配置均通过 config 校验；未启动生产容器。

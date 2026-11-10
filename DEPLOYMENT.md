@@ -2,12 +2,12 @@
 
 本次升级新增“多条信息 → 选题工作台 → 行动清单”，并启用所有业务 API 和实时连接的会话校验。无需新数据库、外部登录服务或手工导入数据。现有 SQLite 启动时会自动增量建表，保留采集记录和主题。旧版 `collection_runs(id, created_at, payload_json)` 会自动转换，完整原始采集结果继续保存在 `legacy_payload_json` 中。
 
-本次部署目标是 **`codex/batch-editorial-auth`**，不是当前远端 `main`。远端 main 已切到另一条历史，因此本分支保留了独立完整版本；不要将两条历史直接强推覆盖。以下命令以该分支为准。
+部署目标为远端 **`main`**。以下命令检出远端 main 的确切版本，不要求服务器上已有的本地分支与其历史一致。
 
 ## 部署前准备
 
 1. 先从“数据与设置 → 下载备份”保存 JSON；再按现有运维方式备份 SQLite 文件或整个数据卷。不要运行 `docker compose down -v`。
-2. 切换前另存当前的 `server/.env`、HTTPS 代理配置和部署脚本，尤其是旧版仓库里的 `deploy/Caddyfile`。本分支的 Compose 和旧 main 编排不同，不沿用旧脚本直接启动。Docker Compose 从**仓库根目录的 `.env`**读取变量；直接运行后端则使用 `server/.env`。
+2. 切换前另存当前的 `server/.env`、HTTPS 代理配置和部署脚本，尤其是旧版仓库里的 `deploy/Caddyfile`。新版 Compose 和旧版编排不同，不沿用旧脚本直接启动。Docker Compose 从**仓库根目录的 `.env`**读取变量；直接运行后端则使用 `server/.env`。
 3. 检查以下配置：
 
 | 变量 | 配置 |
@@ -67,12 +67,12 @@ location / {
 
 ```sh
 git fetch origin
-git switch --track origin/codex/batch-editorial-auth
+git switch --detach origin/main
 docker compose up -d --build
 docker compose logs --tail=100 server
 ```
 
-若本地已有该分支，用 `git switch codex/batch-editorial-auth && git pull --ff-only` 更新。旧 Caddy 容器若仍代理 `api:8080`，需要改为新前端 `client:80`（同一 Docker 网络），或改用前述宿主机 HTTPS 代理到 `127.0.0.1:8080`。旧公网/API直连方式不能直接照搬。
+以上部署检出会处于 detached HEAD，后续更新继续执行 `git fetch origin` 和 `git switch --detach origin/main`。旧 Caddy 容器若仍代理 `api:8080`，需要改为新前端 `client:80`（同一 Docker 网络），或改用前述宿主机 HTTPS 代理到 `127.0.0.1:8080`。旧公网/API直连方式不能直接照搬。
 
 如直接运行源码，使用 Node.js 24+：后端 `npm ci && npm run build && npm start`，前端 `npm ci && npm run build` 并发布 `client/dist`；重启后端以执行增量建表。不需要 Prisma migration。备份恢复上传支持最大20MB。
 
