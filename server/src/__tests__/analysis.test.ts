@@ -4,7 +4,7 @@ import { fallbackAnalyze } from '../modules/analysis/analysis.service.js';
 import { analyzeInformation } from '../modules/analysis/analysis.service.js';
 import { informationStore } from '../modules/collection/information.store.js';
 import { normalizeResult } from '../modules/collection/normalize.js';
-import request from 'supertest';
+import request from '../test/authenticated-request.js';
 import { app } from '../app.js';
 
 beforeEach(() => db.exec('DELETE FROM information_changes; DELETE FROM information_snapshots; DELETE FROM information_items; DELETE FROM keywords; DELETE FROM topics;'));

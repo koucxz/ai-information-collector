@@ -14,8 +14,14 @@ describe('collection normalization', () => {
     expect(normalizeResult({ source: 'fixture', sourceName: '本地测试数据', keyword: 'AI', title: '危险链接', summary: '', content: '', url: 'javascript:alert(1)', publishedAt: null }).url).toBe('');
   });
 
+  it('preserves navigable www hosts without changing legacy dedupe fingerprints', () => {
+    const item = { source: 'fixture', title: '原文', content: '正文', url: 'https://www.example.com/article' };
+    expect(fingerprintFor(item)).toBe(fingerprintFor({ ...item, url: 'https://example.com/article' }));
+    expect(normalizeResult({ ...item, sourceName: '测试', keyword: '', summary: '', publishedAt: null }).url).toBe('https://www.example.com/article');
+  });
+
   it('removes tracking parameters and orders meaningful query parameters', () => {
     const result = normalizeResult({ source: 'baidu', sourceName: '百度', keyword: 'AI', title: 'AI', summary: '', content: 'AI', url: 'https://WWW.Example.com/news/?utm_source=feed&b=2&a=1#top', publishedAt: null });
-    expect(result.url).toBe('https://example.com/news?a=1&b=2');
+    expect(result.url).toBe('https://www.example.com/news?a=1&b=2');
   });
 });

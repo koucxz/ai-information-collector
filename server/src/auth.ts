@@ -1,6 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
+import { EventEmitter } from 'node:events';
+import { db } from './db/client.js';
 import { env } from './config/env.js';
 
 const COOKIE_NAME = 'signaldock_session';
@@ -8,18 +10,23 @@ const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const loginSchema = z.object({ username: z.literal(env.ADMIN_USERNAME), password: z.string().min(1).max(256) }).strict();
 
 type Session = { username: string; expiresAt: number; nonce: string };
+export const sessionEvents = new EventEmitter();
 
 const encode = (value: string) => Buffer.from(value, 'utf8').toString('base64url');
 const decode = (value: string) => Buffer.from(value, 'base64url').toString('utf8');
 const sign = (value: string) => createHmac('sha256', env.SESSION_SECRET).update(value).digest('base64url');
 
 export const createSessionToken = (username = env.ADMIN_USERNAME) => {
-  const payload = encode(JSON.stringify({ username, expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS, nonce: randomBytes(12).toString('hex') } satisfies Session));
+  const session: Session = { username, expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS, nonce: randomBytes(24).toString('hex') };
+  db.prepare('DELETE FROM auth_sessions WHERE expires_at <= ?').run(Math.floor(Date.now() / 1000));
+  db.prepare('INSERT INTO auth_sessions (nonce, username, expires_at) VALUES (?, ?, ?)').run(session.nonce, session.username, session.expiresAt);
+  const payload = encode(JSON.stringify(session));
   return `${payload}.${sign(payload)}`;
 };
 
 export const verifySessionToken = (token: string | undefined): Session | undefined => {
   if (!token) return undefined;
+  if (token.length > 2048 || token.split('.').length !== 2) return undefined;
   const [payload, signature] = token.split('.');
   if (!payload || !signature) return undefined;
   const expected = sign(payload);
@@ -28,7 +35,8 @@ export const verifySessionToken = (token: string | undefined): Session | undefin
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return undefined;
   try {
     const session = JSON.parse(decode(payload)) as Session;
-    if (session.username !== env.ADMIN_USERNAME || !Number.isInteger(session.expiresAt) || session.expiresAt <= Math.floor(Date.now() / 1000)) return undefined;
+    if (session.username !== env.ADMIN_USERNAME || typeof session.nonce !== 'string' || !Number.isInteger(session.expiresAt) || session.expiresAt <= Math.floor(Date.now() / 1000)) return undefined;
+    if (!db.prepare('SELECT nonce FROM auth_sessions WHERE nonce = ? AND username = ? AND expires_at = ?').get(session.nonce, session.username, session.expiresAt)) return undefined;
     return session;
   } catch { return undefined; }
 };
@@ -40,6 +48,10 @@ const parseCookies = (header: string | undefined) => Object.fromEntries((header 
 }));
 
 export const sessionFromRequest = (request: Request) => verifySessionToken(parseCookies(request.headers.cookie)[COOKIE_NAME]);
+export const revokeSession = (session: Session) => {
+  db.prepare('DELETE FROM auth_sessions WHERE nonce = ?').run(session.nonce);
+  sessionEvents.emit('revoked', session.nonce);
+};
 
 export const setSessionCookie = (response: Response, token: string) => {
   const secure = env.NODE_ENV === 'production' ? '; Secure' : '';
@@ -47,7 +59,7 @@ export const setSessionCookie = (response: Response, token: string) => {
 };
 
 export const clearSessionCookie = (response: Response) => {
-  response.setHeader('Set-Cookie', `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict`);
+  response.setHeader('Set-Cookie', `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict${env.NODE_ENV === 'production' ? '; Secure' : ''}`);
 };
 
 export const login = (username: string, password: string) => {
@@ -59,7 +71,6 @@ export const login = (username: string, password: string) => {
 };
 
 export const requireAuth = (request: Request, response: Response, next: NextFunction) => {
-  if (env.NODE_ENV === 'test') return next();
   const session = sessionFromRequest(request);
   if (!session) return response.status(401).json({ error: '请先登录' });
   return next();

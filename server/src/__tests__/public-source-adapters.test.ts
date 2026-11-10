@@ -5,12 +5,12 @@ import { createSourceAdapters } from '../modules/collection/source.registry.js';
 describe('domestic public source adapters', () => {
   it('parses Bilibili search data', () => {
     const results = parseBilibiliResults({ data: { result: [{ title: '<em>AI</em> 工具', description: '视频介绍', arcurl: '//www.bilibili.com/video/BV1abc', pubdate: 1_700_000_000 }] } }, 'AI');
-    expect(results[0]).toMatchObject({ source: 'bilibili', sourceName: 'B 站', title: 'AI 工具', url: 'https://bilibili.com/video/BV1abc' });
+    expect(results[0]).toMatchObject({ source: 'bilibili', sourceName: 'B 站', title: 'AI 工具', url: 'https://www.bilibili.com/video/BV1abc' });
   });
 
   it('parses Bilibili search HTML and canonicalizes video links', () => {
     const html = '<a href="//www.bilibili.com/video/BV1uNk1YxEJQ/?spm_id_from=1"><h3 title="AI 大模型教程">AI <em>大模型</em>教程</h3></a>';
-    expect(parseBilibiliHtmlResults(html, '大模型')[0]).toMatchObject({ title: 'AI 大模型教程', url: 'https://bilibili.com/video/BV1uNk1YxEJQ' });
+    expect(parseBilibiliHtmlResults(html, '大模型')[0]).toMatchObject({ title: 'AI 大模型教程', url: 'https://www.bilibili.com/video/BV1uNk1YxEJQ' });
   });
 
   it('parses Juejin public search data', () => {

@@ -14,6 +14,8 @@ const envSchema = z.object({
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
   AI_MAX_RETRIES: z.coerce.number().int().min(0).max(4).default(2),
   AI_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(3),
+  AI_DAILY_LIMIT: z.coerce.number().int().min(1).max(100000).default(300),
+  BRIEF_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(30),
   GITHUB_TOKEN: z.string().optional(),
   COLLECTION_SCHEDULE_ENABLED: booleanString,
   COLLECTION_CRON: z.string().default('0 */2 * * *'),
@@ -28,7 +30,7 @@ const envSchema = z.object({
   SMTP_FROM: z.string().optional(),
   NOTIFY_EMAIL: z.string().optional()
   ,ADMIN_USERNAME: z.string().trim().min(1).max(64).default('admin')
-  ,ADMIN_PASSWORD: z.string().min(12).max(256).default('VideoNote2026.')
+  ,ADMIN_PASSWORD: z.string().min(12).max(256)
   ,SESSION_SECRET: z.string().min(16).default('signaldock-development-session-secret')
 });
 
@@ -44,6 +46,8 @@ export const env = envSchema.parse({
   AI_TIMEOUT_MS: process.env.AI_TIMEOUT_MS,
   AI_MAX_RETRIES: process.env.AI_MAX_RETRIES,
   AI_CONCURRENCY: process.env.AI_CONCURRENCY,
+  AI_DAILY_LIMIT: process.env.AI_DAILY_LIMIT,
+  BRIEF_DAILY_LIMIT: process.env.BRIEF_DAILY_LIMIT,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   COLLECTION_SCHEDULE_ENABLED: process.env.COLLECTION_SCHEDULE_ENABLED,
   COLLECTION_CRON: process.env.COLLECTION_CRON,
@@ -62,6 +66,10 @@ export const env = envSchema.parse({
   SESSION_SECRET: process.env.SESSION_SECRET
 });
 
-if (env.NODE_ENV === 'production' && env.SESSION_SECRET === 'signaldock-development-session-secret') {
-  throw new Error('生产环境必须设置随机 SESSION_SECRET');
+if (env.NODE_ENV === 'production') {
+  if (!process.env.CLIENT_URL || new URL(env.CLIENT_URL).protocol !== 'https:' || new URL(env.CLIENT_URL).origin !== env.CLIENT_URL) throw new Error('生产环境 CLIENT_URL 必须是实际 HTTPS 源，不含路径或尾斜杠');
+  if (!process.env.ADMIN_PASSWORD) throw new Error('生产环境必须显式设置 ADMIN_PASSWORD');
+  if (!process.env.SESSION_SECRET || env.SESSION_SECRET.length < 32 || /development|replace-with|example|changeme/i.test(env.SESSION_SECRET)) {
+    throw new Error('生产环境必须设置至少32字符的随机 SESSION_SECRET');
+  }
 }

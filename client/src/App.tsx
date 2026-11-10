@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, App as AntApp, ConfigProvider } from 'antd';
+import { Alert, App as AntApp, Button, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { io } from 'socket.io-client';
 import { AppHeader } from './app/AppHeader';
@@ -8,14 +8,16 @@ import { AppModals } from './app/AppModals';
 import { FocusAside } from './features/inbox/FocusAside';
 import { InboxView } from './features/inbox/InboxView';
 import { TopicSettingsDrawer } from './features/topics/TopicSettingsDrawer';
-import { OperationsView, type OperationView } from './features/operations/OperationsView';
-import { request } from './shared/api';
+import { OperationsView } from './features/operations/OperationsView';
+import { ApiError, request } from './shared/api';
 import { splitInput } from './shared/format';
 import type {
   CollectionEvent, CollectionResult, Digest, EditingValue, EventDetail, FeedbackValue,
   FeedItem, FeedMode, FeedResponse, FeedSort, Keyword, ServiceStatus, SourceOption, Topic
 } from './shared/types';
 import { LoginView } from './auth/LoginView';
+import { EditorialWorkspace } from './features/editorial/EditorialWorkspace';
+import type { EditorialBrief, WorkspaceView } from './shared/types';
 
 function SignalDock() {
   const { modal } = AntApp.useApp();
@@ -43,23 +45,46 @@ function SignalDock() {
   const [error, setError] = useState('');
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [digest, setDigest] = useState<Digest | null>(null);
-  const [activeView, setActiveView] = useState<'inbox' | OperationView>('inbox');
+  const [activeView, setActiveView] = useState<WorkspaceView>('inbox');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [briefId, setBriefId] = useState('');
+  const [briefRevision, setBriefRevision] = useState(0);
+  const [editorialDirty, setEditorialDirty] = useState(false);
+  const navigate = (view: WorkspaceView) => {
+    const leavingEditor = !['topics', 'actions'].includes(view) && ['topics', 'actions'].includes(activeView);
+    if (leavingEditor && editorialDirty && !window.confirm('有尚未保存的修改，离开会放弃这些修改，继续吗？')) return;
+    setActiveView(view);
+  };
+  const generateTopics = async () => {
+    if (generating || selectedIds.length < 2) return;
+    setGenerating(true); setError('');
+    try {
+      const result = await request<{ data: EditorialBrief[]; reused: boolean }>('/api/briefs/generate', { method: 'POST', body: JSON.stringify({ itemIds: selectedIds }) });
+      setBriefId(result.data[0]?.id || ''); setBriefRevision(v => v + 1); setActiveView('topics');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '选题生成失败'); }
+    finally { setGenerating(false); }
+  };
 
-  const loadFeed = useCallback(async () => {
+  const feedRequest = useRef(0);
+  const loadFeed = useCallback(async (signal?: AbortSignal) => {
+    const requestId = ++feedRequest.current;
     const query = new URLSearchParams({
       page: String(page),
       pageSize: '10',
       sort: feedSort,
+      ...(searchTerm.trim() ? { q: searchTerm.trim() } : {}),
       ...(feedMode === 'unread' ? { unread: 'true' } : {}),
       ...(feedMode === 'relevant' ? { minRelevance: '0.8' } : {}),
       ...(sourceFilter ? { source: sourceFilter } : {})
     });
     try {
-      setFeedResponse(await request<FeedResponse>('/api/information?' + query));
+      const data = await request<FeedResponse>('/api/information?' + query, { signal });
+      if (requestId === feedRequest.current && !signal?.aborted) setFeedResponse(data);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '信息流加载失败');
+      if (!signal?.aborted && requestId === feedRequest.current) setError(caught instanceof Error ? caught.message : '信息流加载失败');
     }
-  }, [feedMode, feedSort, page, sourceFilter]);
+  }, [feedMode, feedSort, page, sourceFilter, searchTerm]);
 
   const loadOverview = useCallback(async () => {
     try {
@@ -102,7 +127,11 @@ function SignalDock() {
     }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
   }, [checkHealth, loadOverview, loadTopics]);
 
-  useEffect(() => { void loadFeed(); }, [loadFeed]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => void loadFeed(controller.signal), 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [loadFeed]);
 
   useEffect(() => {
     const socket = io({ withCredentials: true });
@@ -118,6 +147,9 @@ function SignalDock() {
         void loadOverview();
       }
     });
+    const checkSession = () => { void request('/api/auth/me').catch(error => { if (error instanceof ApiError && error.status === 401) window.dispatchEvent(new Event('signaldock:unauthorized')); }); };
+    socket.on('connect_error', checkSession);
+    socket.on('disconnect', reason => { if (reason === 'io server disconnect') checkSession(); });
     return () => { socket.disconnect(); };
   }, [loadFeed, loadOverview]);
 
@@ -125,14 +157,7 @@ function SignalDock() {
     () => topics.reduce((count, topic) => count + topic.keywords.filter((keyword) => keyword.enabled).length, 0),
     [topics]
   );
-  const visibleItems = useMemo(() => {
-    const query = searchTerm.trim().toLocaleLowerCase();
-    if (!query) return feedResponse.data;
-    return feedResponse.data.filter((item) => (
-      [item.title, item.summary, item.analysisSummary, item.keyword, item.sourceName]
-        .some((value) => value.toLocaleLowerCase().includes(query))
-    ));
-  }, [feedResponse.data, searchTerm]);
+  const visibleItems = feedResponse.data;
 
   const runCollection = async () => {
     if (!selectedSources.length) {
@@ -275,15 +300,6 @@ function SignalDock() {
     }
   };
 
-  const analyze = async (item: FeedItem) => {
-    try {
-      await request('/api/information/' + item.id + '/analyze', { method: 'POST' });
-      await Promise.all([loadFeed(), loadOverview()]);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '分析失败');
-    }
-  };
-
   const openEvent = async (item: FeedItem) => {
     try {
       setEventDetail((await request<{ data: EventDetail }>('/api/information/' + item.id + '/event')).data);
@@ -317,9 +333,14 @@ function SignalDock() {
         onLoadDigest={() => void loadDigest()}
         onRunCollection={() => void runCollection()}
         activeView={activeView}
-        onNavigate={setActiveView}
+        onNavigate={navigate}
+        onLogout={() => {
+          if (editorialDirty && !window.confirm('尚有未保存的修改，确定退出吗？')) return;
+          void request('/api/auth/logout', { method: 'POST' }).then(() => window.dispatchEvent(new Event('signaldock:unauthorized'))).catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
+        }}
       />
       {error && <Alert className="page-alert" type="error" title={error} closable onClose={() => setError('')} showIcon />}
+      {collection && activeView === 'inbox' && <Alert className="page-alert" type="success" title={`采集完成：新增 ${collection.persistence.saved} 条，重复 ${collection.persistence.duplicates} 条`} description="勾选多条线索，点击“提炼选题”，继续形成提纲与行动。" action={<Button onClick={() => setCollection(null)}>知道了</Button>} />}
       {activeView === 'inbox' ? <main className="focus-layout">
         <InboxView
           overview={overview}
@@ -333,12 +354,20 @@ function SignalDock() {
           page={page}
           onSortChange={(sort) => { setFeedSort(sort); setPage(1); }}
           onModeChange={changeMode}
-          onSearchChange={setSearchTerm}
+          onSearchChange={value => { setSearchTerm(value); setPage(1); }}
           onSourceChange={(source) => { setSourceFilter(source); setPage(1); }}
           onPageChange={setPage}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenEvent={(item) => void openEvent(item)}
-          onAnalyze={(item) => void analyze(item)}
+          selectedIds={selectedIds}
+          generating={generating}
+          onToggleSelect={id => {
+            if (!selectedIds.includes(id) && selectedIds.length >= 20) { setError('最多选择20条线索'); return; }
+            setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
+          }}
+          onSelectPage={() => setSelectedIds(current => [...new Set([...current, ...visibleItems.map(item => item.id)])].slice(0, 20))}
+          onClearSelection={() => setSelectedIds([])}
+          onGenerate={() => void generateTopics()}
           onFeedback={(item, value) => void sendFeedback(item, value)}
           onMarkRead={(item) => void markRead(item)}
         />
@@ -352,7 +381,7 @@ function SignalDock() {
           onOpenSettings={() => setSettingsOpen(true)}
           onLoadDigest={() => void loadDigest()}
         />
-      </main> : <OperationsView view={activeView} onError={setError} />}
+      </main> : activeView === 'topics' || activeView === 'actions' ? <EditorialWorkspace view={activeView} selectedId={briefId} revision={briefRevision} onSelect={setBriefId} onNavigate={navigate} onDirty={setEditorialDirty} /> : <OperationsView view={activeView} onError={setError} />}
       <TopicSettingsDrawer
         open={settingsOpen}
         sources={sources}
@@ -395,7 +424,10 @@ function SignalDock() {
 function App() {
   const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'anonymous'>('checking');
   useEffect(() => {
+    const expired = () => setAuthState('anonymous');
+    window.addEventListener('signaldock:unauthorized', expired);
     void request('/api/auth/me').then(() => setAuthState('authenticated')).catch(() => setAuthState('anonymous'));
+    return () => window.removeEventListener('signaldock:unauthorized', expired);
   }, []);
   return (
     <ConfigProvider

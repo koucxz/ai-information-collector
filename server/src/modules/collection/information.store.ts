@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import type { SearchResult } from './collection.types.js';
-import { normalizeUrl } from './normalize.js';
+import { dedupeUrl, normalizeUrl } from './normalize.js';
 
 export type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
 export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; isSaved: boolean; isArchived: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null; personalizedScore: number };
@@ -37,7 +37,7 @@ const resolveEventKey = (title: string) => {
   }
   return match?.key ?? eventKeyFor(title);
 };
-export const dedupeKeyFor = (item: Pick<SearchResult, 'url' | 'fingerprint'>) => { const normalizedUrl = normalizeUrl(item.url); return normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`; };
+export const dedupeKeyFor = (item: Pick<SearchResult, 'url' | 'fingerprint'>) => { const normalizedUrl = dedupeUrl(item.url); return normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`; };
 const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), isSaved: Boolean(row.is_saved), isArchived: Boolean(row.is_archived), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason), feedback: row.feedback ? String(row.feedback) as FeedbackValue : null, personalizedScore: Number(row.personalized_score ?? 0) });
 
 const feedbackJoin = 'LEFT JOIN information_feedback feedback_row ON feedback_row.item_id = information_items.id';

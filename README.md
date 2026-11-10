@@ -24,6 +24,9 @@ SignalDock 是一个面向个人使用的信息收集与持续监测平台。设
 - 提供事件库、采集任务、来源健康和通知渠道页面
 - 支持飞书、企业微信、钉钉和通用 Webhook
 - 支持 JSON/CSV 导出以及完整备份恢复
+- 选择2–20条线索综合提炼选题，编辑提纲、参考来源与待核验问题
+- 行动清单支持计划日期、进度保存、完成归档及恢复，选题可复制和导出 Markdown
+- 管理员会话可撤销，API 与 Socket 均鉴权，AI 每日额度持久化
 
 ## 工作流程
 
@@ -33,6 +36,8 @@ flowchart LR
     B --> C[去重与变化检测]
     C --> D[AI 分析]
     D --> E[个人信息流]
+    E --> F[综合选题与提纲]
+    F --> G[行动清单与归档]
     E -. 使用反馈 .-> D
 
     classDef input fill:#ecfdf5,stroke:#16a34a,color:#14532d;
@@ -97,7 +102,7 @@ npm install
 npm run dev
 ```
 
-浏览器访问 `http://localhost:5173`。首次登录使用单一管理员账号：用户名 `admin`，密码 `VideoNote2026.`（末尾句号也是密码的一部分）。不配置外部密钥也可以使用本地测试数据和本地分析规则。
+启动前在 `server/.env` 显式填写 `ADMIN_PASSWORD`，保留指定密码的结尾标点。浏览器访问 `http://localhost:5173`，使用管理员用户名（默认 `admin`）与该密码登录。不配置外部密钥也可以使用本地测试数据和本地分析规则。
 
 ### 环境变量
 
@@ -109,7 +114,7 @@ AI_API_KEY=
 AI_MODEL=Qwen/Qwen3-8B
 GITHUB_TOKEN=
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=VideoNote2026.
+ADMIN_PASSWORD=填写你的完整管理员密码
 SESSION_SECRET=请替换为随机长字符串
 TRUST_PROXY=false
 COLLECTION_SCHEDULE_ENABLED=false
@@ -124,9 +129,9 @@ COLLECTION_CRON=0 */2 * * *
 docker compose up --build -d
 ```
 
-Docker 部署前必须在 `.env` 中设置随机的 `SESSION_SECRET`；服务端以非 root 用户运行，并要求登录后才能访问数据、采集、备份和通知接口。
+Docker 部署前必须在仓库根目录 `.env` 显式设置 `ADMIN_PASSWORD`、至少32字符随机 `SESSION_SECRET` 和实际 HTTPS 源 `CLIENT_URL`。配置 HTTPS 代理后使用；完整步骤和本次增量建表说明见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
-启动后访问 `http://localhost:8080`，SQLite 数据保存在 Docker volume 中。
+前端仅监听服务器本机 `127.0.0.1:8080`，通过你的 HTTPS 代理访问，SQLite 数据保存在 Docker volume 中。
 
 ## 常用接口
 
@@ -139,6 +144,9 @@ Docker 部署前必须在 `.env` 中设置随机的 `SESSION_SECRET`；服务端
 | `GET /api/collect/sources` | 可用信息源 |
 | `POST /api/collect/run` | 执行完整采集流程 |
 | `GET /api/information` | 信息流与筛选 |
+| `POST /api/briefs/generate` | 多条线索综合生成选题（相同输入复用已保存草稿） |
+| `GET /api/briefs` | 选题与行动列表 |
+| `PATCH /api/briefs/:id` | 带版本号更新提纲、行动与归档状态 |
 | `PUT /api/information/:id/feedback` | 提交使用反馈 |
 | `GET /api/notifications/digest` | 预览周期摘要 |
 | `GET /api/events` | 事件聚合列表 |

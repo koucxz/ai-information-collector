@@ -1,8 +1,10 @@
 import request from 'supertest';
+import authenticatedRequest from '../test/authenticated-request.js';
 import { describe, expect, it } from 'vitest';
 import { app } from '../app.js';
 import { restoreBackup, exportInformationCsv, csvEscape } from '../modules/data/data.service.js';
 import { parsePublicHttpUrl } from '../security/url.js';
+import { env } from '../config/env.js';
 
 describe('security hardening', () => {
   it('sets browser security headers and keeps health public', async () => {
@@ -20,14 +22,14 @@ describe('security hardening', () => {
 
   it('supports the single admin login and rejects invalid credentials', async () => {
     expect((await request(app).post('/api/auth/login').send({ username: 'admin', password: 'wrong' })).status).toBe(401);
-    const response = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'VideoNote2026.' });
+    const response = await request(app).post('/api/auth/login').send({ username: env.ADMIN_USERNAME, password: env.ADMIN_PASSWORD });
     expect(response.status).toBe(200);
     expect(response.headers['set-cookie']?.[0]).toContain('HttpOnly');
   });
 
   it('rejects local notification endpoints', async () => {
     expect(parsePublicHttpUrl('http://127.0.0.1:3001')).toBeUndefined();
-    expect((await request(app).post('/api/notifications/channels').send({ name: 'local', type: 'webhook', endpoint: 'http://127.0.0.1:3001' })).status).toBe(400);
+    expect((await authenticatedRequest(app).post('/api/notifications/channels').send({ name: 'local', type: 'webhook', endpoint: 'http://127.0.0.1:3001' })).status).toBe(400);
   });
 
   it('rejects unknown backup columns instead of interpolating them into SQL', () => {

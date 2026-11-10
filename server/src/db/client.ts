@@ -33,6 +33,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS notification_channels (id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, endpoint TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS notification_deliveries (id TEXT PRIMARY KEY, channel_id TEXT NOT NULL REFERENCES notification_channels(id) ON DELETE CASCADE, status TEXT NOT NULL, response_code INTEGER, error TEXT, created_at TEXT NOT NULL);
   CREATE INDEX IF NOT EXISTS notification_deliveries_created_idx ON notification_deliveries(created_at DESC);
+  CREATE TABLE IF NOT EXISTS auth_sessions (nonce TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL);
+  CREATE TABLE IF NOT EXISTS editorial_briefs (id TEXT PRIMARY KEY, generation_key TEXT NOT NULL, document_json TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+  CREATE INDEX IF NOT EXISTS editorial_briefs_generation_idx ON editorial_briefs(generation_key);
+  CREATE TABLE IF NOT EXISTS generation_usage (day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS ai_usage (day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
 `);
 
 const ensureColumn = (table: string, column: string, definition: string) => {

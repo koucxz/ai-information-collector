@@ -14,7 +14,7 @@ informationRouter.get('/', (request, response) => {
   const minImportance = request.query.minImportance === undefined ? undefined : Number(request.query.minImportance);
   const minRelevance = request.query.minRelevance === undefined ? undefined : Number(request.query.minRelevance);
   if ([minImportance, minRelevance].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1))) return response.status(400).json({ error: '筛选参数无效' });
-  return response.json(informationStore.feed({ page, pageSize, sort, unread, saved, archived, query, minImportance, minRelevance }));
+  return response.json(informationStore.feed({ page, pageSize, sort, unread, saved, archived, query, source, minImportance, minRelevance }));
 });
 informationRouter.get('/:id', (request, response) => {
   const item = informationStore.findById(request.params.id);

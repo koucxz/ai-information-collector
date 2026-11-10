@@ -1,5 +1,6 @@
-import { Button, Empty, Input, Pagination, Segmented, Tag, Tooltip } from 'antd';
-import { Check, Copy, EyeOff, Layers3, Search, Sparkles, ThumbsUp } from 'lucide-react';
+import { Button, Checkbox, Empty, Input, Pagination, Segmented, Tag, Tooltip } from 'antd';
+import { Check, Copy, ExternalLink, EyeOff, Layers3, Search, Sparkles, ThumbsUp } from 'lucide-react';
+import { originalUrl } from '../../shared/links';
 import { formatRelativeTime } from '../../shared/format';
 import type {
   FeedbackValue,
@@ -28,7 +29,12 @@ type InboxViewProps = {
   onPageChange: (page: number) => void;
   onOpenSettings: () => void;
   onOpenEvent: (item: FeedItem) => void;
-  onAnalyze: (item: FeedItem) => void;
+  selectedIds: string[];
+  generating: boolean;
+  onToggleSelect: (id: string) => void;
+  onSelectPage: () => void;
+  onClearSelection: () => void;
+  onGenerate: () => void;
   onFeedback: (item: FeedItem, value: FeedbackValue) => void;
   onMarkRead: (item: FeedItem) => void;
 };
@@ -39,7 +45,7 @@ export function InboxView(props: InboxViewProps) {
       <div className="page-heading">
         <div>
           <p>共收集 {props.overview.all} 条信息，{props.overview.relevant} 条值得关注</p>
-          <h1>信息流</h1>
+          <h1>发现信息</h1>
         </div>
         <Segmented
           value={props.feedSort}
@@ -63,7 +69,7 @@ export function InboxView(props: InboxViewProps) {
             allowClear
             aria-label="搜索信息"
             prefix={<Search size={14} />}
-            placeholder="搜索当前页"
+            placeholder="搜索全部信息"
             value={props.searchTerm}
             onChange={(event) => props.onSearchChange(event.target.value)}
           />
@@ -74,12 +80,14 @@ export function InboxView(props: InboxViewProps) {
         </div>
       </div>
 
+      <div className="batch-toolbar"><div><strong>综合提炼选题</strong><p>选择 2–20 条线索，一起提炼选题和行动建议。已选 {props.selectedIds.length} 条</p></div><div><Button onClick={props.onSelectPage} disabled={props.generating || !props.items.length}>选择当前页</Button><Button onClick={props.onClearSelection} disabled={props.generating || !props.selectedIds.length}>清空</Button><Button type="primary" icon={<Sparkles size={14} />} loading={props.generating} disabled={props.selectedIds.length < 2} onClick={props.onGenerate}>提炼选题</Button></div></div>
+
       <div className="feed-list">
         {props.items.length === 0 && (
           <Empty
             className="empty-feed"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={props.searchTerm ? '当前页面没有匹配结果' : '还没有符合条件的信息'}
+            description={props.searchTerm ? '没有匹配结果' : '还没有符合条件的信息'}
           >
             {!props.searchTerm && <Button type="primary" onClick={props.onOpenSettings}>添加关注主题</Button>}
           </Empty>
@@ -92,19 +100,20 @@ export function InboxView(props: InboxViewProps) {
             {!item.isRead && <span className="unread-dot" />}
             <div className="feed-body">
               <div className="feed-meta">
+                <Checkbox aria-label={'选择线索：' + item.title} checked={props.selectedIds.includes(item.id)} disabled={props.generating} onChange={() => props.onToggleSelect(item.id)} />
                 <span className={'source-label source-' + item.source}>{item.sourceName}</span>
                 <span>{formatRelativeTime(item.collectedAt)}</span>
                 <button onClick={() => props.onOpenEvent(item)}><Layers3 size={12} />事件来源</button>
               </div>
-              <a href={item.url || undefined} target="_blank" rel="noreferrer"><h2>{item.title}</h2></a>
+              {originalUrl(item.url) ? <a href={originalUrl(item.url)} target="_blank" rel="noopener noreferrer"><h2>{item.title}</h2></a> : <h2>{item.title}</h2>}
               <p>{item.analysisSummary || item.summary || '暂无摘要'}</p>
               <div className="feed-footer">
                 <div className="feed-tags">
                   {item.keyword && <Tag>{item.keyword}</Tag>}
-                  {item.aiStatus && <Tag>{item.aiStatus === 'fallback' ? '本地分析' : 'AI 分析'}</Tag>}
+                  {item.aiStatus && <Tag>{item.aiStatus === 'pending' ? '待整理' : item.aiStatus === 'fallback' ? '本地整理' : 'AI 摘要'}</Tag>}
                 </div>
                 <div className="feed-actions">
-                  <Tooltip title="重新分析"><Button aria-label="重新分析" type="text" size="small" icon={<Sparkles size={13} />} onClick={() => props.onAnalyze(item)} /></Tooltip>
+                  {originalUrl(item.url) ? <a className="original-link" href={originalUrl(item.url)} target="_blank" rel="noopener noreferrer">查看原文 <ExternalLink size={12} /></a> : <span>原文链接缺失</span>}
                   <Tooltip title="有用"><Button aria-label="标记有用" type="text" size="small" className={item.feedback === 'helpful' ? 'selected' : ''} icon={<ThumbsUp size={13} />} onClick={() => props.onFeedback(item, 'helpful')} /></Tooltip>
                   <Tooltip title="无关"><Button aria-label="标记无关" type="text" size="small" className={item.feedback === 'irrelevant' ? 'selected' : ''} icon={<EyeOff size={13} />} onClick={() => props.onFeedback(item, 'irrelevant')} /></Tooltip>
                   <Tooltip title="重复"><Button aria-label="标记重复" type="text" size="small" className={item.feedback === 'duplicate' ? 'selected' : ''} icon={<Copy size={13} />} onClick={() => props.onFeedback(item, 'duplicate')} /></Tooltip>

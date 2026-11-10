@@ -1,8 +1,9 @@
 import { db } from '../../db/client.js';
 
-const tables = ['topics', 'keywords', 'information_items', 'information_snapshots', 'information_changes', 'information_feedback', 'collection_runs', 'source_health', 'analysis_calls', 'notification_channels', 'notification_deliveries'] as const;
+const tables = ['topics', 'keywords', 'information_items', 'information_snapshots', 'information_changes', 'information_feedback', 'collection_runs', 'source_health', 'analysis_calls', 'notification_channels', 'notification_deliveries', 'editorial_briefs'] as const;
 type Backup = { format: 'signaldock-backup'; version: 1; exportedAt: string; tables: Record<string, unknown[]> };
 const columns: Record<typeof tables[number], readonly string[]> = {
+  editorial_briefs: ['id', 'generation_key', 'document_json', 'version', 'created_at', 'updated_at'],
   topics: ['id', 'name', 'aliases_json', 'exclude_words_json', 'source_ids_json', 'frequency_minutes', 'notification_level', 'description', 'enabled', 'created_at', 'updated_at'],
   keywords: ['id', 'value', 'enabled', 'topic_id', 'created_at', 'updated_at'],
   information_items: ['id', 'source', 'source_name', 'keyword', 'title', 'summary', 'content', 'url', 'published_at', 'collected_at', 'fingerprint', 'dedupe_key', 'event_key', 'is_read', 'relevance_score', 'importance_score', 'ai_status', 'analysis_summary', 'analysis_reason', 'is_saved', 'is_archived', 'created_at', 'updated_at'],

@@ -1,4 +1,4 @@
-import request from 'supertest';
+import request from '../test/authenticated-request.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.js';
 import { db } from '../db/client.js';

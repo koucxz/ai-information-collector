@@ -1,0 +1,49 @@
+.app-frame { display: grid; grid-template-columns: 204px minmax(0, 1fr); grid-template-rows: auto; align-content: start; }
+.app-frame > main, .app-frame > .page-alert, .app-frame > .operations-view { grid-column: 2; min-width: 0; }
+.workspace-sidebar { grid-column: 1; grid-row: 1 / span 20; min-height: 100vh; display: flex; flex-direction: column; align-items: stretch; gap: 22px; padding: 28px 17px; border-right: 1px solid #e0e5eb; background: #f9fafb; }
+.workspace-sidebar .brand { min-width: 0; }
+.workspace-sidebar .brand strong { font-size: 17px; }
+.workspace-private { color: #8993a3; font-size: 11px; }
+.workspace-nav { display: grid; gap: 8px; }
+.workspace-nav button { display: flex; align-items: center; gap: 11px; border: 0; padding: 13px 12px; text-align: left; background: transparent; color: #667085; border-radius: 7px; }
+.workspace-nav button[aria-current=page] { background: #e7f2eb; color: #16734a; font-weight: 500; }
+.workspace-admin { display: grid; gap: 12px; margin-top: 18px; color: #667085; font-size: 12px; }
+.workspace-logout { margin-top: auto; }
+.workspace-topbar { grid-column: 2; padding: 17px 30px; gap: 18px; flex-wrap: wrap; }
+.workspace-breadcrumb { color: #667085; font-size: 12px; }
+.app-frame .focus-layout { grid-template-columns: minmax(0, 1fr); }
+.app-frame .focus-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; border-left: 0; border-top: 1px solid #e0e5eb; }
+.app-frame .focus-aside .aside-section { margin: 0; }
+.app-frame .focus-aside .digest-button { align-self: start; }
+.app-frame .page-alert { align-self: start; }
+.app-frame .feed-column { padding: 32px 38px; }
+.login-shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr); gap: 40px; padding: 50px; background: #fff; }
+.login-story { display: grid; gap: 70px; padding: 20px; }
+.login-story h1 { font-size: 40px; line-height: 1.5; font-weight: 500; margin: 18px 0; }
+.login-story p { color: #667085; line-height: 1.9; }
+.login-story > p, .login-steps, .login-steps span, .login-card small { display: flex; align-items: center; gap: 9px; }
+.login-steps { flex-wrap: wrap; gap: 22px; color: #16734a; font-size: 13px; margin-top: 30px; }
+.login-card { box-shadow: none; border: 0; width: min(380px, 100%); padding: 25px; }
+.login-card p, .login-card small { color: #667085; margin: 0; }
+@media(max-width: 960px) { .workspace-topbar { padding-inline: 20px; } .workspace-topbar .service-state { display: none; } .app-frame .focus-aside { grid-template-columns: minmax(0, 1fr); } }
+@media(max-width: 760px) {
+  .login-shell { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 25px 16px; }
+  .login-story { gap: 24px; padding: 0 12px; }
+  .login-story h1 { font-size: 27px; }
+  .login-story > p { display: none; }
+  .login-steps { gap: 14px; margin-top: 15px; }
+  .login-card { padding: 20px 12px; }
+  .app-frame { display: block; }
+  .workspace-sidebar { min-height: 0; padding: 16px; border-right: 0; border-bottom: 1px solid #e0e5eb; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 15px; }
+  .workspace-sidebar .brand strong { display: inline; }
+  .workspace-private { display: none; }
+  .workspace-nav { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+  .workspace-nav button { padding: 12px 4px; justify-content: center; gap: 6px; font-size: 12px; }
+  .workspace-admin { grid-column: 1; grid-row: 3; margin: 0; gap: 6px; }
+  .workspace-logout { grid-column: 2; grid-row: 3; align-self: end; }
+  .workspace-topbar { padding: 14px 16px; }
+  .workspace-breadcrumb { flex: 1; }
+  .workspace-topbar .top-actions { margin: 0; }
+  .workspace-topbar .top-actions .ant-btn-primary { font-size: 12px; width: auto; padding-inline: 10px; }
+  .app-frame .feed-column { padding: 24px 18px; }
+}

@@ -1,0 +1,47 @@
+.editorial-workspace { min-width: 0; padding: 34px 38px 48px; }
+.editorial-heading, .editorial-toolbar, .editorial-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.editorial-heading { margin-bottom: 26px; }
+.editorial-eyebrow { color: #16734a; font-size: 11px; letter-spacing: 1.8px; }
+.editorial-heading h1 { font-size: 25px; line-height: 1.4; margin: 10px 0; }
+.editorial-heading p, .editorial-hint, .editorial-section-heading > span { color: #667085; line-height: 1.8; }
+.editorial-toolbar { padding: 16px 0; border-block: 1px solid #e5e9ed; margin-bottom: 18px; }
+.editorial-toolbar label { display: flex; align-items: center; flex: 1; gap: 10px; min-width: 0; }
+.editorial-toolbar .ant-select { flex: 1; min-width: 120px; max-width: 480px; }
+.editorial-toolbar > span { color: #667085; font-size: 12px; }
+.editorial-workspace > .ant-alert { margin-bottom: 18px; }
+.editorial-labels { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 18px 0; }
+.editorial-labels > span:last-child { color: #667085; font-size: 12px; }
+.editorial-grid { display: grid; grid-template-columns: minmax(0, 1fr) 275px; gap: 32px; }
+.editorial-editor { min-width: 0; }
+.editorial-editor fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.editorial-field { display: grid; gap: 9px; margin-bottom: 22px; color: #667085; }
+.editorial-field textarea { font-size: 22px; font-weight: 500; }
+.editorial-editor h2, .editorial-evidence h2 { font-size: 15px; margin: 20px 0 13px; }
+.editorial-outline { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 19px 0; border-bottom: 1px solid #e5e9ed; }
+.editorial-outline > span { color: #16734a; padding-top: 5px; }
+.editorial-outline > div { display: grid; gap: 9px; min-width: 0; }
+.editorial-outline small { color: #667085; }
+.editorial-editor > .editorial-section-heading { margin-top: 22px; }
+.editorial-evidence { border-left: 1px solid #e5e9ed; padding-left: 23px; min-width: 0; }
+.editorial-evidence p, .editorial-evidence li { color: #667085; font-size: 13px; line-height: 1.8; }
+.editorial-evidence article { border-bottom: 1px solid #e5e9ed; padding: 15px 0; }
+.editorial-evidence article small { color: #667085; }
+.editorial-evidence h3 { font-size: 14px; font-weight: 500; line-height: 1.7; overflow-wrap: anywhere; }
+.editorial-evidence a, .original-link { color: #16734a !important; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.editorial-evidence ul { padding-left: 19px; }
+.editorial-actions h2 { font-size: 19px; overflow-wrap: anywhere; }
+.editorial-actions > .ant-radio-group { margin: 20px 0; }
+.editorial-task { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 23px 0; border-bottom: 1px solid #e5e9ed; }
+.editorial-task > .ant-checkbox-wrapper { padding-top: 7px; }
+.editorial-task > div { display: grid; gap: 13px; min-width: 0; }
+.editorial-task label { color: #667085; font-size: 12px; }
+.editorial-task input[type=date] { padding: 4px 7px; border: 1px solid #d8dee7; border-radius: 5px; background: #fff; color: #182230; max-width: 100%; }
+.editorial-add { display: flex; gap: 10px; padding: 22px 0; }
+.batch-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; margin: 22px 0 8px; padding: 17px; border-radius: 8px; background: #eff6f1; }
+.batch-toolbar p { color: #667085; font-size: 12px; line-height: 1.8; margin: 5px 0 0; }
+.batch-toolbar > div:last-child { display: flex; flex-wrap: wrap; gap: 7px; }
+.feed-actions { opacity: 1; flex-wrap: wrap; }
+.feed-footer { flex-wrap: wrap; }
+.feed-tags .ant-tag, .score-column > span { font-size: 11px; }
+@media(max-width: 1120px) { .editorial-grid { grid-template-columns: minmax(0, 1fr); } .editorial-evidence { border-left: 0; border-top: 1px solid #e5e9ed; padding: 16px 0 0; } }
+@media(max-width: 760px) { .editorial-workspace { padding: 25px 18px 40px; } .editorial-toolbar label { flex-basis: 100%; } .editorial-heading h1 { font-size: 22px; } .editorial-task { gap: 8px; grid-template-columns: 22px minmax(0, 1fr); } .editorial-task > .ant-tag { grid-column: 2; justify-self: start; } .editorial-field textarea { font-size: 20px; } }

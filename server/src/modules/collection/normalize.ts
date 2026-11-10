@@ -10,17 +10,26 @@ export const normalizeUrl = (value: string | undefined | null) => {
     const url = new URL(raw);
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return '';
     url.hash = '';
-    url.hostname = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
+    // www and the bare domain may serve different sites; preserve the original host.
+    url.hostname = url.hostname.toLocaleLowerCase();
     for (const key of [...url.searchParams.keys()]) {
       if (/^(?:utm_.+|spm|from|source|ref|referer|share_source|share_medium|timestamp)$/i.test(key)) url.searchParams.delete(key);
     }
     url.searchParams.sort();
     if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, '');
     return url.toString();
-  } catch { return raw; }
+  } catch { return ''; }
 };
 
-export const fingerprintFor = (input: Pick<SearchResult, 'source' | 'title' | 'content' | 'url'>) => createHash('sha256').update([input.source, normalizeUrl(input.url), cleanText(input.title), cleanText(input.content)].join('\n')).digest('hex');
+// Keep legacy dedupe keys stable while retaining the real navigable hostname in stored URLs.
+export const dedupeUrl = (value: string) => {
+  const normalized = normalizeUrl(value);
+  if (!normalized) return '';
+  const url = new URL(normalized);
+  url.hostname = url.hostname.replace(/^www\./, '');
+  return url.toString();
+};
+export const fingerprintFor = (input: Pick<SearchResult, 'source' | 'title' | 'content' | 'url'>) => createHash('sha256').update([input.source, dedupeUrl(input.url), cleanText(input.title), cleanText(input.content)].join('\n')).digest('hex');
 
 export const normalizeResult = (input: Omit<SearchResult, 'collectedAt' | 'fingerprint'>): SearchResult => {
   const result = { ...input, title: cleanText(input.title), summary: cleanText(input.summary), content: cleanText(input.content), url: normalizeUrl(input.url), publishedAt: input.publishedAt ? new Date(input.publishedAt).toISOString() : null, collectedAt: new Date().toISOString() };

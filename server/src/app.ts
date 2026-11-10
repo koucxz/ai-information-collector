@@ -12,6 +12,7 @@ import { eventRouter } from './modules/events/event.routes.js';
 import { dataRouter } from './modules/data/data.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { requireAuth } from './auth.js';
+import { briefRouter } from './modules/briefs/brief.routes.js';
 
 export const app = express();
 
@@ -32,7 +33,7 @@ app.use((request, response, next) => {
   return next();
 });
 app.use(express.json({ limit: '256kb' }));
-app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true }));
+app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, message: { error: '请求过于频繁，请稍后再试' } }));
 
 app.get('/api/health', (_request, response) => {
   response.json({
@@ -44,6 +45,8 @@ app.get('/api/health', (_request, response) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api', requireAuth);
+app.use('/api', (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
+app.use('/api/briefs', briefRouter);
 
 app.use('/api/topics', topicRouter);
 app.use('/api/collect', collectionRouter);
