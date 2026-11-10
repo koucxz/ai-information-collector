@@ -10,7 +10,7 @@ const columns: Record<typeof tables[number], readonly string[]> = {
   information_snapshots: ['id', 'item_id', 'title', 'content', 'fingerprint', 'captured_at'],
   information_changes: ['id', 'item_id', 'change_type', 'summary', 'created_at'],
   information_feedback: ['item_id', 'value', 'created_at', 'updated_at'],
-  collection_runs: ['id', 'status', 'sources_json', 'started_at', 'finished_at', 'results', 'saved', 'changes', 'error'],
+  collection_runs: ['id', 'status', 'sources_json', 'started_at', 'finished_at', 'results', 'saved', 'changes', 'error', 'legacy_payload_json'],
   source_health: ['source', 'attempts', 'successes', 'failures', 'total_duration_ms', 'last_success_at', 'last_failure_at', 'last_error', 'updated_at'],
   analysis_calls: ['id', 'item_id', 'provider', 'status', 'attempts', 'duration_ms', 'error', 'created_at'],
   notification_channels: ['id', 'name', 'type', 'endpoint', 'enabled', 'created_at', 'updated_at'],

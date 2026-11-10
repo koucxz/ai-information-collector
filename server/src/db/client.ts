@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { env } from '../config/env.js';
+import { collectionRunsSchema, migrateLegacyCollectionRuns } from './migrations.js';
 
 type TopicRow = { id: string; name: string; aliases_json: string; exclude_words_json: string; source_ids_json: string; frequency_minutes: number; notification_level: string; description: string; enabled: number; created_at: string; updated_at: string };
 type KeywordRow = { id: string; value: string; enabled: number; topic_id: string; created_at: string; updated_at: string };
@@ -12,6 +13,7 @@ const databasePath = isAbsolute(filePath) ? filePath : resolve(process.cwd(), fi
 mkdirSync(dirname(databasePath), { recursive: true });
 
 export const db = new DatabaseSync(databasePath);
+migrateLegacyCollectionRuns(db);
 db.exec(`
   PRAGMA foreign_keys = ON;
   CREATE TABLE IF NOT EXISTS topics (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, aliases_json TEXT NOT NULL DEFAULT '[]', exclude_words_json TEXT NOT NULL DEFAULT '[]', enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
@@ -25,7 +27,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS information_changes (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, change_type TEXT NOT NULL, summary TEXT NOT NULL, created_at TEXT NOT NULL);
   CREATE INDEX IF NOT EXISTS information_change_item_idx ON information_changes(item_id, created_at);
   CREATE TABLE IF NOT EXISTS information_feedback (item_id TEXT PRIMARY KEY REFERENCES information_items(id) ON DELETE CASCADE, value TEXT NOT NULL CHECK(value IN ('helpful', 'irrelevant', 'duplicate')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-  CREATE TABLE IF NOT EXISTS collection_runs (id TEXT PRIMARY KEY, status TEXT NOT NULL, sources_json TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, results INTEGER NOT NULL DEFAULT 0, saved INTEGER NOT NULL DEFAULT 0, changes INTEGER NOT NULL DEFAULT 0, error TEXT);
+  ${collectionRunsSchema}
   CREATE INDEX IF NOT EXISTS collection_runs_started_idx ON collection_runs(started_at DESC);
   CREATE TABLE IF NOT EXISTS source_health (source TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0, total_duration_ms INTEGER NOT NULL DEFAULT 0, last_success_at TEXT, last_failure_at TEXT, last_error TEXT, updated_at TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS analysis_calls (id TEXT PRIMARY KEY, item_id TEXT, provider TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 1, duration_ms INTEGER NOT NULL DEFAULT 0, error TEXT, created_at TEXT NOT NULL);
@@ -46,6 +48,7 @@ const ensureColumn = (table: string, column: string, definition: string) => {
 };
 
 ensureColumn('information_items', 'is_saved', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('collection_runs', 'legacy_payload_json', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('information_items', 'is_archived', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('topics', 'source_ids_json', "TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('topics', 'frequency_minutes', 'INTEGER NOT NULL DEFAULT 120');

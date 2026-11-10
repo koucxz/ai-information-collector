@@ -90,4 +90,13 @@ describe('batch editorial workflow', () => {
       expect(result.data[0].provider).toBe('fallback'); expect(result.data[0].sources.map(s => s.id).sort()).toEqual([...ids].sort());
     } finally { env.AI_API_KEY = originalKey; }
   });
+
+  it('accepts authenticated backups larger than normal request limits', async () => {
+    seed();
+    db.prepare('UPDATE information_items SET content = ? WHERE id = ?').run('x'.repeat(300_000), informationStore.list()[0].id);
+    const backup = createBackup();
+    const response = await request(app).post('/api/data/restore').send(backup);
+    expect(response.status).toBe(200);
+    expect(informationStore.list().some(item => item.content.length === 300_000)).toBe(true);
+  });
 });

@@ -32,7 +32,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       NOTIFY_EMAIL: ${NOTIFY_EMAIL:-}
     volumes:
-      - signaldock-data:/data
+      - ${SIGNALDOCK_DATA_PATH:-signaldock-data}:/data
     init: true
     read_only: true
     tmpfs:

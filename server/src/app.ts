@@ -32,6 +32,8 @@ app.use((request, response, next) => {
   if (origin && !['GET', 'HEAD', 'OPTIONS'].includes(request.method) && origin !== env.CLIENT_URL) return response.status(403).json({ error: '请求来源不受信任' });
   return next();
 });
+// Authenticate large backup uploads before reading them; normal requests stay small.
+app.use('/api/data/restore', requireAuth, express.json({ limit: '20mb' }));
 app.use(express.json({ limit: '256kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, message: { error: '请求过于频繁，请稍后再试' } }));
 
@@ -61,6 +63,8 @@ app.use((_request, response) => {
   response.status(404).json({ error: '接口不存在' });
 });
 
-app.use((_error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  if ((error as { status?: number })?.status === 413) return response.status(413).json({ error: '请求数据超过大小限制，备份最多20MB' });
+  if (error instanceof SyntaxError && (error as { status?: number }).status === 400) return response.status(400).json({ error: 'JSON 格式无效' });
   response.status(500).json({ error: '服务器内部错误' });
 });

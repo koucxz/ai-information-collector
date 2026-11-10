@@ -1,11 +1,13 @@
 # 本次升级部署
 
-本次升级新增“多条信息 → 选题工作台 → 行动清单”，并启用所有业务 API 和实时连接的会话校验。无需新数据库、外部登录服务或手工导入数据。现有 SQLite 启动时会自动增量建表，保留采集记录和主题。
+本次升级新增“多条信息 → 选题工作台 → 行动清单”，并启用所有业务 API 和实时连接的会话校验。无需新数据库、外部登录服务或手工导入数据。现有 SQLite 启动时会自动增量建表，保留采集记录和主题。旧版 `collection_runs(id, created_at, payload_json)` 会自动转换，完整原始采集结果继续保存在 `legacy_payload_json` 中。
+
+本次部署目标是 **`codex/batch-editorial-auth`**，不是当前远端 `main`。远端 main 已切到另一条历史，因此本分支保留了独立完整版本；不要将两条历史直接强推覆盖。以下命令以该分支为准。
 
 ## 部署前准备
 
 1. 先从“数据与设置 → 下载备份”保存 JSON；再按现有运维方式备份 SQLite 文件或整个数据卷。不要运行 `docker compose down -v`。
-2. 将代码更新到本次提交。Docker Compose 从**仓库根目录的 `.env`**读取变量；直接运行后端则使用 `server/.env`。
+2. 切换前另存当前的 `server/.env`、HTTPS 代理配置和部署脚本，尤其是旧版仓库里的 `deploy/Caddyfile`。本分支的 Compose 和旧 main 编排不同，不沿用旧脚本直接启动。Docker Compose 从**仓库根目录的 `.env`**读取变量；直接运行后端则使用 `server/.env`。
 3. 检查以下配置：
 
 | 变量 | 配置 |
@@ -16,6 +18,7 @@
 | `ADMIN_PASSWORD` | 显式填写之前指定的完整密码；末尾英文句号必须保留 |
 | `SESSION_SECRET` | 至少32字符的随机值，不能使用示例文本；不同后端进程必须一致 |
 | `DATABASE_URL` | 保持当前数据库路径，Compose 中为 `file:/data/signaldock.db` |
+| `SIGNALDOCK_DATA_PATH` | 旧 main 使用仓库的 `./data` 目录时必须设为 `./data`；可填实际宿主机目录；已有默认命名卷则不设置此项，并沿用相同 Compose 项目名 |
 | `TRUST_PROXY` | 使用本仓库同域代理时为 `true`；后端不要直接暴露公网 |
 | `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` | 沿用现有 AI 配置；密钥仅放后端 |
 | `AI_DAILY_LIMIT` | 全部 AI 外部请求每日上限，默认300，含失败和重试 |
@@ -56,15 +59,22 @@ location / {
 
 ## 更新
 
-使用现有持久卷、同一 Compose 项目名和同一数据库路径：
+先停止使用相同数据库的旧后端；如果旧容器名为 `signaldock-api`，执行 `docker stop signaldock-api`，并在新服务验收后删除旧容器/关闭公网3001端口，防止旧匿名 API 继续暴露。保留现有数据库与证书卷。
+
+使用现有持久卷、同一 Compose 项目名和同一数据库路径。若使用旧版 `./data` 目录，确保目录和数据库对容器 UID 1000 可写；不要把原库误换成一个新空卷。
+
+若数据在自定义名称的 Docker volume 中，需要使用 Compose override 将 `signaldock-data` 映射到那个 external volume；不要将未声明的卷名直接填入 `SIGNALDOCK_DATA_PATH`。
 
 ```sh
-git pull --ff-only
+git fetch origin
+git switch --track origin/codex/batch-editorial-auth
 docker compose up -d --build
 docker compose logs --tail=100 server
 ```
 
-如直接运行源码，使用 Node.js 24+：后端 `npm ci && npm run build && npm start`，前端 `npm ci && npm run build` 并发布 `client/dist`；重启后端以执行增量建表。不需要 Prisma migration。
+若本地已有该分支，用 `git switch codex/batch-editorial-auth && git pull --ff-only` 更新。旧 Caddy 容器若仍代理 `api:8080`，需要改为新前端 `client:80`（同一 Docker 网络），或改用前述宿主机 HTTPS 代理到 `127.0.0.1:8080`。旧公网/API直连方式不能直接照搬。
+
+如直接运行源码，使用 Node.js 24+：后端 `npm ci && npm run build && npm start`，前端 `npm ci && npm run build` 并发布 `client/dist`；重启后端以执行增量建表。不需要 Prisma migration。备份恢复上传支持最大20MB。
 
 ## 上线验收
 
