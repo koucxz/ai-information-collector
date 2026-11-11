@@ -316,6 +316,8 @@ button { cursor: pointer; }
 .score-column .ant-btn { width: 28px; height: 28px; margin-top: 12px; padding: 0; color: #768294; background: transparent; }
 
 .empty-feed { display: grid; place-items: center; align-content: center; min-height: 430px; }
+.feed-skeleton { min-height: 145px; padding: 22px 20px; border-bottom: 1px solid #e0e5eb; }
+.feed-skeleton .ant-skeleton { max-width: 860px; }
 .feed-pagination { display: flex; justify-content: center; margin-top: 24px; }
 
 .focus-aside {
@@ -341,7 +343,7 @@ button { cursor: pointer; }
 .aside-title > span { overflow: hidden; color: #8a94a4; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .aside-title .ant-btn { width: 26px; height: 26px; padding: 0; color: #677486; }
 
-.topic-overview { display: grid; gap: 3px; margin-top: 11px; }
+.topic-overview { display: grid; gap: 3px; min-height: 42px; margin-top: 11px; }
 
 .topic-overview button {
   display: flex;
@@ -374,7 +376,7 @@ button { cursor: pointer; }
 .collection-stats dt { color: #8490a0; font-size: 9px; }
 .collection-stats dd { margin: 6px 0 0; font-size: 15px; font-weight: 620; }
 
-.source-dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; }
+.source-dots { display: flex; flex-wrap: wrap; gap: 6px; min-height: 31px; margin-top: 15px; }
 
 .source-dots span {
   border: 1px solid #dfe4e9;

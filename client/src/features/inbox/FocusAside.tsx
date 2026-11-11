@@ -1,4 +1,4 @@
-import { Button, Tooltip } from 'antd';
+import { Button, Skeleton, Tooltip } from 'antd';
 import { ChevronRight, Plus, Settings2, Sparkles } from 'lucide-react';
 import type { CollectionResult, FeedOverview, SourceOption, Topic } from '../../shared/types';
 
@@ -9,6 +9,8 @@ type FocusAsideProps = {
   overview: FeedOverview;
   collection: CollectionResult | null;
   liveStatus: string;
+  topicsLoading: boolean;
+  sourcesLoading: boolean;
   onOpenSettings: () => void;
   onLoadDigest: () => void;
 };
@@ -22,8 +24,9 @@ export function FocusAside(props: FocusAsideProps) {
           <Tooltip title="管理主题"><Button aria-label="管理主题" type="text" icon={<Plus size={14} />} onClick={props.onOpenSettings} /></Tooltip>
         </div>
         <div className="topic-overview">
-          {props.topics.length === 0 && <button className="empty-topic" onClick={props.onOpenSettings}>添加第一个关注主题</button>}
-          {props.topics.map((topic, index) => (
+          {props.topicsLoading && <Skeleton active title={false} paragraph={{ rows: 2, width: ['78%', '55%'] }} />}
+          {!props.topicsLoading && props.topics.length === 0 && <button className="empty-topic" onClick={props.onOpenSettings}>添加第一个关注主题</button>}
+          {!props.topicsLoading && props.topics.map((topic, index) => (
             <button className={index === 0 && topic.enabled ? 'active' : ''} key={topic.id} onClick={props.onOpenSettings}>
               <span><i className={topic.enabled ? '' : 'paused'} />{topic.name}</span>
               <b>{topic.keywords.filter((keyword) => keyword.enabled).length}</b>
@@ -40,7 +43,8 @@ export function FocusAside(props: FocusAsideProps) {
           <div><dt>内容变化</dt><dd>{props.collection?.persistence.changes ?? 0}</dd></div>
         </dl>
         <div className="source-dots">
-          {props.sources.map((source) => (
+          {props.sourcesLoading && <Skeleton active title={false} paragraph={{ rows: 2, width: ['86%', '62%'] }} />}
+          {!props.sourcesLoading && props.sources.map((source) => (
             <span className={props.selectedSources.includes(source.id) ? 'enabled' : ''} key={source.id}>{source.name}</span>
           ))}
         </div>

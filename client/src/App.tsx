@@ -26,6 +26,9 @@ function SignalDock() {
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [feedResponse, setFeedResponse] = useState<FeedResponse>({ data: [], page: 1, pageSize: 10, total: 0, totalPages: 0 });
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [topicsLoading, setTopicsLoading] = useState(true);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
   const [overview, setOverview] = useState({ all: 0, unread: 0, relevant: 0 });
   const [page, setPage] = useState(1);
   const [sourceFilter, setSourceFilter] = useState('');
@@ -69,6 +72,7 @@ function SignalDock() {
   const feedRequest = useRef(0);
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++feedRequest.current;
+    setFeedLoading(true);
     const query = new URLSearchParams({
       page: String(page),
       pageSize: '10',
@@ -83,6 +87,8 @@ function SignalDock() {
       if (requestId === feedRequest.current && !signal?.aborted) setFeedResponse(data);
     } catch (caught) {
       if (!signal?.aborted && requestId === feedRequest.current) setError(caught instanceof Error ? caught.message : '信息流加载失败');
+    } finally {
+      if (!signal?.aborted && requestId === feedRequest.current) setFeedLoading(false);
     }
   }, [feedMode, feedSort, page, sourceFilter, searchTerm]);
 
@@ -100,10 +106,13 @@ function SignalDock() {
   }, []);
 
   const loadTopics = useCallback(async () => {
+    setTopicsLoading(true);
     try {
       setTopics((await request<{ data: Topic[] }>('/api/topics')).data);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '主题加载失败');
+    } finally {
+      setTopicsLoading(false);
     }
   }, []);
 
@@ -124,7 +133,8 @@ function SignalDock() {
     void request<{ data: SourceOption[] }>('/api/collect/sources').then(({ data }) => {
       setSources(data);
       setSelectedSources(data.filter((source) => source.id !== 'fixture').map((source) => source.id));
-    }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'))
+      .finally(() => setSourcesLoading(false));
   }, [checkHealth, loadOverview, loadTopics]);
 
   useEffect(() => {
@@ -350,6 +360,7 @@ function SignalDock() {
           sourceFilter={sourceFilter}
           sources={sources}
           items={visibleItems}
+          loading={feedLoading}
           feedResponse={feedResponse}
           page={page}
           onSortChange={(sort) => { setFeedSort(sort); setPage(1); }}
@@ -378,6 +389,8 @@ function SignalDock() {
           overview={overview}
           collection={collection}
           liveStatus={liveStatus}
+          topicsLoading={topicsLoading}
+          sourcesLoading={sourcesLoading}
           onOpenSettings={() => setSettingsOpen(true)}
           onLoadDigest={() => void loadDigest()}
         />

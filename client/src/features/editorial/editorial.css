@@ -1,4 +1,5 @@
 .editorial-workspace { min-width: 0; padding: 34px 38px 48px; }
+.editorial-loading { min-height: 620px; }
 .editorial-heading, .editorial-toolbar, .editorial-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .editorial-heading { margin-bottom: 26px; }
 .editorial-eyebrow { color: #16734a; font-size: 11px; letter-spacing: 1.8px; }

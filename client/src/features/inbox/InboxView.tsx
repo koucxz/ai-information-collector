@@ -1,4 +1,4 @@
-import { Button, Checkbox, Empty, Input, Pagination, Segmented, Tag, Tooltip } from 'antd';
+import { Button, Checkbox, Empty, Input, Pagination, Segmented, Skeleton, Tag, Tooltip } from 'antd';
 import { Check, Copy, ExternalLink, EyeOff, Layers3, Search, Sparkles, ThumbsUp } from 'lucide-react';
 import { originalUrl } from '../../shared/links';
 import { formatRelativeTime } from '../../shared/format';
@@ -20,6 +20,7 @@ type InboxViewProps = {
   sourceFilter: string;
   sources: SourceOption[];
   items: FeedItem[];
+  loading: boolean;
   feedResponse: FeedResponse;
   page: number;
   onSortChange: (sort: FeedSort) => void;
@@ -83,7 +84,8 @@ export function InboxView(props: InboxViewProps) {
       <div className="batch-toolbar"><div><strong>综合提炼选题</strong><p>选择 2–20 条线索，一起提炼选题和行动建议。已选 {props.selectedIds.length} 条</p></div><div><Button onClick={props.onSelectPage} disabled={props.generating || !props.items.length}>选择当前页</Button><Button onClick={props.onClearSelection} disabled={props.generating || !props.selectedIds.length}>清空</Button><Button type="primary" icon={<Sparkles size={14} />} loading={props.generating} disabled={props.selectedIds.length < 2} onClick={props.onGenerate}>提炼选题</Button></div></div>
 
       <div className="feed-list">
-        {props.items.length === 0 && (
+        {props.loading && Array.from({ length: 10 }, (_, index) => <div className="feed-skeleton" key={index}><Skeleton active title={{ width: '42%' }} paragraph={{ rows: 2, width: ['68%', '48%'] }} /></div>)}
+        {!props.loading && props.items.length === 0 && (
           <Empty
             className="empty-feed"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -92,7 +94,7 @@ export function InboxView(props: InboxViewProps) {
             {!props.searchTerm && <Button type="primary" onClick={props.onOpenSettings}>添加关注主题</Button>}
           </Empty>
         )}
-        {props.items.map((item) => (
+        {!props.loading && props.items.map((item) => (
           <article
             className={'feed-row ' + (item.isRead ? 'read ' : '') + (item.importanceScore >= 0.9 ? 'highlighted' : '')}
             key={item.id}

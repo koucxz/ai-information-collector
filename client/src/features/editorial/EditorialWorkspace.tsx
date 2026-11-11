@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Checkbox, Empty, Input, Progress, Radio, Select, Tag } from 'antd';
+import { Alert, Button, Checkbox, Empty, Input, Progress, Radio, Select, Skeleton, Tag } from 'antd';
 import { Archive, ArrowRight, Copy, Download, ExternalLink, Plus, RotateCcw, Save } from 'lucide-react';
 import { request } from '../../shared/api';
 import { originalUrl } from '../../shared/links';
@@ -70,7 +70,7 @@ export function EditorialWorkspace(props: Props) {
     const a = document.createElement('a'); a.href = url; a.download = 'SignalDock-选题.md'; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  if (loading) return <main className="editorial-workspace"><p role="status">正在加载选题…</p></main>;
+  if (loading) return <main className="editorial-workspace editorial-loading" role="status" aria-label="加载中"><Skeleton active title={{ width: '38%' }} paragraph={{ rows: 8 }} /></main>;
   if (!draft) return <main className="editorial-workspace">{error && <Alert type="error" title={error} />}<Empty description="还没有选题，先从多条信息里综合提炼"><Button type="primary" onClick={() => props.onNavigate('inbox')}>去发现信息</Button></Empty></main>;
   const done = draft.tasks.filter(t => t.done).length;
   const updateTask = (id: string, patch: Partial<EditorialBrief['tasks'][number]>) => setDraft({ ...draft, tasks: draft.tasks.map(t => t.id === id ? { ...t, ...patch } : t) });
