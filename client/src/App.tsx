@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, App as AntApp, Button, ConfigProvider } from 'antd';
+import { Alert, App as AntApp, Button, ConfigProvider, Spin } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { io } from 'socket.io-client';
 import { AppHeader } from './app/AppHeader';
@@ -452,7 +452,7 @@ function App() {
         }
       }}
     >
-      <AntApp>{authState === 'checking' ? <div className="login-shell"><div className="login-card">正在检查登录状态…</div></div> : authState === 'authenticated' ? <SignalDock /> : <LoginView onLogin={() => setAuthState('authenticated')} />}</AntApp>
+      <AntApp>{authState === 'checking' ? <div className="auth-loading-shell" role="status" aria-label="加载中"><Spin size="large" /></div> : authState === 'authenticated' ? <SignalDock /> : <LoginView onLogin={() => setAuthState('authenticated')} />}</AntApp>
     </ConfigProvider>
   );
 }
