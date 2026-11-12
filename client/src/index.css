@@ -260,12 +260,16 @@ button { cursor: pointer; }
 .source-bilibili { background: #d85b85; }
 .source-weibo { background: #d5533f; }
 .source-baidu { background: #415fd4; }
-.source-fixture { background: #7b61a8; }
 
 .feed-row a { color: inherit; text-decoration: none; }
 .feed-row a:hover h2 { color: #16734a; }
 
 .feed-row h2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   margin: 10px 0 7px;
   overflow-wrap: anywhere;
   font-size: 16px;
@@ -274,12 +278,19 @@ button { cursor: pointer; }
   line-height: 1.45;
 }
 
-.feed-row p {
+/* 列表摘要最多三行，超出以省略号收尾，避免长正文把列表撑得很长 */
+.feed-row .feed-body > p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   max-width: 860px;
   margin: 0;
+  overflow: hidden;
   color: #667085;
   font-size: 12px;
   line-height: 1.7;
+  text-overflow: ellipsis;
 }
 
 .feed-footer {
@@ -466,6 +477,7 @@ button { cursor: pointer; }
 .keyword-editor-list button:hover, .keyword-input button:hover { color: #16734a; }
 .keyword-input { width: calc(100% - 36px); margin: 8px 0 0 36px; }
 
+.digest-loading { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 150px; color: #667085; font-size: 12px; }
 .detail-modal > p { margin: 0; color: #7b8798; font-size: 11px; }
 .digest-sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .digest-sources .ant-tag { margin: 0; color: #40634f; background: #edf7f0; }

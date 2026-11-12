@@ -1,4 +1,4 @@
-import { Empty, Input, Modal, Tag } from 'antd';
+import { Empty, Input, Modal, Spin, Tag } from 'antd';
 import { ChevronRight } from 'lucide-react';
 import { formatTime } from '../shared/format';
 import type { Digest, EditingValue, EventDetail } from '../shared/types';
@@ -8,6 +8,8 @@ type AppModalsProps = {
   editValue: string;
   eventDetail: EventDetail | null;
   digest: Digest | null;
+  digestOpen: boolean;
+  digestLoading: boolean;
   onEditValueChange: (value: string) => void;
   onSaveEdit: () => void;
   onCloseEdit: () => void;
@@ -47,7 +49,8 @@ export function AppModals(props: AppModalsProps) {
         )}
       </Modal>
 
-      <Modal title={props.digest?.title ?? '今日摘要'} open={Boolean(props.digest)} footer={null} width={680} onCancel={props.onCloseDigest}>
+      <Modal title={props.digest?.title ?? '今日摘要'} open={props.digestOpen} footer={null} width={680} onCancel={props.onCloseDigest}>
+        {props.digestLoading && !props.digest && <div className="digest-loading"><Spin /> <span>正在整理今日摘要…</span></div>}
         {props.digest && (
           <div className="detail-modal digest-modal">
             <p>共 {props.digest.total} 条 · 未读 {props.digest.unread} 条 · 内容变化 {props.digest.changes} 条</p>

@@ -1,10 +1,9 @@
 import type { FormEvent } from 'react';
-import { Button, Checkbox, Drawer, Empty, Input, Switch, Tooltip } from 'antd';
+import { Button, Checkbox, Empty, Input, Switch, Tooltip } from 'antd';
 import { Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { EditingValue, Keyword, SourceOption, Topic } from '../../shared/types';
 
-type TopicSettingsDrawerProps = {
-  open: boolean;
+export type TopicSettingsPanelProps = {
   sources: SourceOption[];
   selectedSources: string[];
   topicName: string;
@@ -13,7 +12,6 @@ type TopicSettingsDrawerProps = {
   topics: Topic[];
   enabledKeywordCount: number;
   keywordDrafts: Record<string, string>;
-  onClose: () => void;
   onSelectedSourcesChange: (sources: string[]) => void;
   onTopicNameChange: (value: string) => void;
   onTopicAliasesChange: (value: string) => void;
@@ -28,9 +26,9 @@ type TopicSettingsDrawerProps = {
   onStartEdit: (editing: EditingValue, value: string) => void;
 };
 
-export function TopicSettingsDrawer(props: TopicSettingsDrawerProps) {
+export function TopicSettingsPanel(props: TopicSettingsPanelProps) {
   return (
-    <Drawer title="关注与采集设置" size={440} open={props.open} onClose={props.onClose}>
+    <>
       <section className="drawer-section">
         <div className="drawer-heading"><div><h2>采集来源</h2><p>选择每次运行时需要检索的平台</p></div><span>{props.selectedSources.length} 个已启用</span></div>
         <Checkbox.Group
@@ -96,6 +94,6 @@ export function TopicSettingsDrawer(props: TopicSettingsDrawerProps) {
           </div>
         ))}
       </section>
-    </Drawer>
+    </>
   );
 }

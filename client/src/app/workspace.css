@@ -7,14 +7,10 @@
 .workspace-nav { display: grid; gap: 8px; }
 .workspace-nav button { display: flex; align-items: center; gap: 11px; border: 0; padding: 13px 12px; text-align: left; background: transparent; color: #667085; border-radius: 7px; }
 .workspace-nav button[aria-current=page] { background: #e7f2eb; color: #16734a; font-weight: 500; }
-.workspace-admin { display: grid; gap: 12px; margin-top: 18px; color: #667085; font-size: 12px; }
 .workspace-logout { margin-top: auto; }
 .workspace-topbar { grid-column: 2; padding: 17px 30px; gap: 18px; flex-wrap: wrap; }
 .workspace-breadcrumb { color: #667085; font-size: 12px; }
 .app-frame .focus-layout { grid-template-columns: minmax(0, 1fr); }
-.app-frame .focus-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; border-left: 0; border-top: 1px solid #e0e5eb; }
-.app-frame .focus-aside .aside-section { margin: 0; }
-.app-frame .focus-aside .digest-button { align-self: start; }
 .app-frame .page-alert { align-self: start; }
 .app-frame .feed-column { padding: 32px 38px; }
 .login-shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr); gap: 40px; padding: 50px; background: #fff; }
@@ -26,7 +22,7 @@
 .login-steps { flex-wrap: wrap; gap: 22px; color: #16734a; font-size: 13px; margin-top: 30px; }
 .login-card { box-shadow: none; border: 0; width: min(380px, 100%); padding: 25px; }
 .login-card p, .login-card small { color: #667085; margin: 0; }
-@media(max-width: 960px) { .workspace-topbar { padding-inline: 20px; } .workspace-topbar .service-state { display: none; } .app-frame .focus-aside { grid-template-columns: minmax(0, 1fr); } }
+@media(max-width: 960px) { .workspace-topbar { padding-inline: 20px; } .workspace-topbar .service-state { display: none; } }
 @media(max-width: 760px) {
   .login-shell { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 25px 16px; }
   .login-story { gap: 24px; padding: 0 12px; }
@@ -38,13 +34,58 @@
   .workspace-sidebar { min-height: 0; padding: 16px; border-right: 0; border-bottom: 1px solid #e0e5eb; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 15px; }
   .workspace-sidebar .brand strong { display: inline; }
   .workspace-private { display: none; }
-  .workspace-nav { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+  .workspace-nav { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
   .workspace-nav button { padding: 12px 4px; justify-content: center; gap: 6px; font-size: 12px; }
-  .workspace-admin { grid-column: 1; grid-row: 3; margin: 0; gap: 6px; }
   .workspace-logout { grid-column: 2; grid-row: 3; align-self: end; }
   .workspace-topbar { padding: 14px 16px; }
   .workspace-breadcrumb { flex: 1; }
   .workspace-topbar .top-actions { margin: 0; }
   .workspace-topbar .top-actions .ant-btn-primary { font-size: 12px; width: auto; padding-inline: 10px; }
   .app-frame .feed-column { padding: 24px 18px; }
+}
+
+/* 顶部关注主题标签：最多 10 个，替代原来的底部/侧边主题列表 */
+.topic-tagbar { grid-column: 2; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 11px 30px; border-bottom: 1px solid #e6eaee; background: #fbfcfd; }
+.topic-tagbar-label { flex: 0 0 auto; color: #667085; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+.topic-tagbar-list { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.topic-tag { display: inline-flex; align-items: center; gap: 6px; max-width: 170px; height: 25px; padding: 0 10px; overflow: hidden; border: 1px solid #d7e6dc; border-radius: 13px; color: #2c5c43; background: #f0f7f2; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.topic-tag:hover { border-color: #9fc6ad; background: #e5f3ea; color: #145b3b; }
+.topic-tag i { flex: 0 0 auto; width: 5px; height: 5px; border-radius: 50%; background: #42a675; }
+.topic-tag.is-paused { border-color: #e1e5ea; color: #8a94a4; background: #f5f6f8; }
+.topic-tag.is-paused i { background: #b3bcc8; }
+.topic-tag.is-placeholder, .topic-tag.is-empty { border-style: dashed; color: #8a94a4; background: #fff; }
+.topic-tag-more { color: #8a94a4; font-size: 11px; }
+.topic-tag-add { display: grid; place-items: center; width: 25px; height: 25px; border: 1px dashed #cbd5df; border-radius: 50%; color: #7b8798; background: #fff; }
+.topic-tag-add:hover { border-color: #16734a; color: #16734a; }
+
+/* 独立设置页：左侧菜单平铺 */
+.settings-layout { grid-column: 2; display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 118px); min-width: 0; background: #f7f8fa; }
+.settings-menu { display: flex; flex-direction: column; gap: 18px; padding: 30px 16px; border-right: 1px solid #e0e5eb; background: #fbfcfd; }
+.settings-menu-title { padding: 0 12px; color: #182230; font-size: 13px; font-weight: 650; }
+.settings-menu nav { display: grid; gap: 4px; }
+.settings-menu nav button { display: flex; align-items: flex-start; gap: 10px; width: 100%; border: 0; border-radius: 7px; padding: 10px 12px; color: #667085; background: transparent; text-align: left; }
+.settings-menu nav button:hover { color: #16734a; background: #f0f7f2; }
+.settings-menu nav button[aria-current=page] { color: #145b3b; background: #e7f2eb; }
+.settings-menu nav button > svg { flex: 0 0 auto; margin-top: 2px; }
+.settings-menu nav button > span { display: grid; gap: 2px; min-width: 0; }
+.settings-menu nav strong { font-size: 12px; font-weight: 600; }
+.settings-menu nav small { color: #98a2b3; font-size: 10px; }
+.settings-menu nav button[aria-current=page] small { color: #5a8b70; }
+.settings-menu-foot { margin: auto 12px 0; color: #a0a9b6; font-size: 10px; line-height: 1.6; }
+.settings-content { min-width: 0; padding: 30px 36px 60px; }
+.settings-content .operations-view { min-height: 0; padding: 0; background: transparent; }
+.settings-content .operations-heading, .settings-content .operation-card, .settings-content > .operations-view > .ant-table-wrapper { max-width: none; }
+.settings-panel { max-width: 860px; border: 1px solid #e4e8ed; border-radius: 8px; padding: 24px 26px 8px; background: #fff; }
+.settings-panel-head { border-bottom: 1px solid #edf0f3; padding-bottom: 16px; margin-bottom: 4px; }
+.settings-panel-head h1 { margin: 0; color: #182230; font-size: 21px; font-weight: 650; }
+.settings-panel-head p { margin: 6px 0 0; color: #7b8798; font-size: 12px; }
+@media(max-width: 960px) { .settings-layout { grid-template-columns: 190px minmax(0, 1fr); } .settings-content { padding: 24px 20px 48px; } }
+@media(max-width: 760px) {
+  .topic-tagbar { padding: 10px 16px; gap: 8px; }
+  .settings-layout { grid-template-columns: minmax(0, 1fr); }
+  .settings-menu { padding: 16px; border-right: 0; border-bottom: 1px solid #e0e5eb; gap: 10px; }
+  .settings-menu nav { display: flex; flex-wrap: wrap; }
+  .settings-menu nav button { width: auto; padding: 8px 10px; }
+  .settings-menu nav small, .settings-menu-foot { display: none; }
+  .settings-content { padding: 20px 16px 40px; }
 }

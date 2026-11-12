@@ -4,9 +4,12 @@ import { Alert, Button, Input } from 'antd';
 import { request } from '../shared/api';
 import { Compass, ListChecks, LockKeyhole, NotebookPen, Radar, ShieldCheck } from 'lucide-react';
 
+const DEFAULT_USERNAME = 'admin';
+const DEFAULT_PASSWORD = 'SignalDock2026.';
+
 export function LoginView({ onLogin }: { onLogin: () => void }) {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(DEFAULT_USERNAME);
+  const [password, setPassword] = useState(DEFAULT_PASSWORD);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const submit = async (event: FormEvent) => {

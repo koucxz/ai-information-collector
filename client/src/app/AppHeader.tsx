@@ -1,13 +1,11 @@
-import { Badge, Button, Select, Tooltip } from 'antd';
-import { Bell, Compass, ListChecks, LogOut, NotebookPen, Radar, RefreshCw } from 'lucide-react';
-import type { FeedMode, ServiceStatus, WorkspaceView } from '../shared/types';
+import { Badge, Button, Tooltip } from 'antd';
+import { Bell, Compass, ListChecks, LogOut, NotebookPen, Radar, RefreshCw, Settings2 } from 'lucide-react';
+import type { ServiceStatus, WorkspaceView } from '../shared/types';
 
 type AppHeaderProps = {
-  feedMode: FeedMode;
   serviceStatus: ServiceStatus;
   unreadCount: number;
   collecting: boolean;
-  onChangeMode: (mode: FeedMode) => void;
   onCheckHealth: () => void;
   onLoadDigest: () => void;
   onRunCollection: () => void;
@@ -16,8 +14,18 @@ type AppHeaderProps = {
   onLogout: () => void;
 };
 
+const VIEW_NAMES: Record<WorkspaceView, string> = {
+  inbox: '发现信息', topics: '选题工作台', actions: '行动清单', manage: '设置',
+  events: '事件库', runs: '采集任务', sources: '信息来源', notifications: '通知渠道', settings: '数据与设置'
+};
+const MANAGEMENT_VIEWS: WorkspaceView[] = ['manage', 'events', 'runs', 'sources', 'notifications', 'settings'];
+
 export function AppHeader(props: AppHeaderProps) {
   const { serviceStatus, unreadCount, collecting } = props;
+  const inSettings = MANAGEMENT_VIEWS.includes(props.activeView);
+  const breadcrumb = props.activeView === 'manage' || !inSettings
+    ? `工作区 / ${VIEW_NAMES[props.activeView]}`
+    : `设置 / ${VIEW_NAMES[props.activeView]}`;
   return (
     <><aside className="workspace-sidebar">
       <div className="brand">
@@ -29,11 +37,11 @@ export function AppHeader(props: AppHeaderProps) {
         <button aria-current={props.activeView === 'inbox' ? 'page' : undefined} onClick={() => props.onNavigate('inbox')}><Compass size={17} />发现信息</button>
         <button aria-current={props.activeView === 'topics' ? 'page' : undefined} onClick={() => props.onNavigate('topics')}><NotebookPen size={17} />选题工作台</button>
         <button aria-current={props.activeView === 'actions' ? 'page' : undefined} onClick={() => props.onNavigate('actions')}><ListChecks size={17} />行动清单</button>
+        <button aria-current={inSettings ? 'page' : undefined} onClick={() => props.onNavigate('manage')}><Settings2 size={17} />设置</button>
       </nav>
-      <label className="workspace-admin">采集与管理<Select aria-label="采集与管理" placeholder="管理入口" value={['events', 'runs', 'sources', 'notifications', 'settings'].includes(props.activeView) ? props.activeView : undefined} onChange={props.onNavigate} options={[{ value: 'events', label: '事件库' }, { value: 'runs', label: '采集任务' }, { value: 'sources', label: '来源' }, { value: 'notifications', label: '通知' }, { value: 'settings', label: '数据与设置' }]} /></label>
       <Button className="workspace-logout" icon={<LogOut size={15} />} onClick={props.onLogout}>退出登录</Button>
     </aside><header className="topbar workspace-topbar">
-      <span className="workspace-breadcrumb">工作区 / {({ inbox: '发现信息', topics: '选题工作台', actions: '行动清单', events: '事件库', runs: '采集任务', sources: '来源', notifications: '通知', settings: '数据与设置' })[props.activeView]}</span>
+      <span className="workspace-breadcrumb">{breadcrumb}</span>
       <div className="top-actions">
         <button className={'service-state ' + serviceStatus} onClick={props.onCheckHealth}>
           <i />{serviceStatus === 'online' ? '采集器在线' : serviceStatus === 'checking' ? '正在连接' : '服务离线'}

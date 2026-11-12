@@ -5,15 +5,15 @@ import zhCN from 'antd/locale/zh_CN';
 import { io } from 'socket.io-client';
 import { AppHeader } from './app/AppHeader';
 import { AppModals } from './app/AppModals';
-import { FocusAside } from './features/inbox/FocusAside';
 import { InboxView } from './features/inbox/InboxView';
-import { TopicSettingsDrawer } from './features/topics/TopicSettingsDrawer';
-import { OperationsView } from './features/operations/OperationsView';
+import { TopicTagBar } from './features/topics/TopicTagBar';
+import { SettingsPage } from './features/settings/SettingsPage';
+import type { SettingsView } from './features/settings/SettingsPage';
 import { ApiError, request } from './shared/api';
 import { splitInput } from './shared/format';
 import type {
   CollectionEvent, CollectionResult, Digest, EditingValue, EventDetail, FeedbackValue,
-  FeedItem, FeedMode, FeedResponse, FeedSort, Keyword, ServiceStatus, SourceOption, Topic
+  FeedItem, FeedMode, FeedOverview, FeedResponse, FeedSort, Keyword, ServiceStatus, SourceOption, Topic
 } from './shared/types';
 import { LoginView } from './auth/LoginView';
 import { EditorialWorkspace } from './features/editorial/EditorialWorkspace';
@@ -28,14 +28,12 @@ function SignalDock() {
   const [feedResponse, setFeedResponse] = useState<FeedResponse>({ data: [], page: 1, pageSize: 10, total: 0, totalPages: 0 });
   const [feedLoading, setFeedLoading] = useState(true);
   const [topicsLoading, setTopicsLoading] = useState(true);
-  const [sourcesLoading, setSourcesLoading] = useState(true);
   const [overview, setOverview] = useState({ all: 0, unread: 0, relevant: 0 });
   const [page, setPage] = useState(1);
   const [sourceFilter, setSourceFilter] = useState('');
   const [feedMode, setFeedMode] = useState<FeedMode>('all');
   const [feedSort, setFeedSort] = useState<FeedSort>('personalized');
   const [searchTerm, setSearchTerm] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [topicName, setTopicName] = useState('');
   const [topicAliases, setTopicAliases] = useState('');
   const [topicExcludes, setTopicExcludes] = useState('');
@@ -44,10 +42,12 @@ function SignalDock() {
   const [editValue, setEditValue] = useState('');
   const [collecting, setCollecting] = useState(false);
   const [collection, setCollection] = useState<CollectionResult | null>(null);
-  const [liveStatus, setLiveStatus] = useState('等待首次采集');
   const [error, setError] = useState('');
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [digestOpen, setDigestOpen] = useState(false);
+  const [digestLoading, setDigestLoading] = useState(false);
+  const digestCache = useRef<{ data: Digest; at: number } | null>(null);
   const [activeView, setActiveView] = useState<WorkspaceView>('inbox');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -94,12 +94,7 @@ function SignalDock() {
 
   const loadOverview = useCallback(async () => {
     try {
-      const [all, unread, relevant] = await Promise.all([
-        request<FeedResponse>('/api/information?page=1&pageSize=1'),
-        request<FeedResponse>('/api/information?page=1&pageSize=1&unread=true'),
-        request<FeedResponse>('/api/information?page=1&pageSize=1&minRelevance=0.8')
-      ]);
-      setOverview({ all: all.total, unread: unread.total, relevant: relevant.total });
+      setOverview(await request<FeedOverview>('/api/information/overview'));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '概览加载失败');
     }
@@ -132,27 +127,22 @@ function SignalDock() {
     void loadOverview();
     void request<{ data: SourceOption[] }>('/api/collect/sources').then(({ data }) => {
       setSources(data);
-      setSelectedSources(data.filter((source) => source.id !== 'fixture').map((source) => source.id));
-    }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'))
-      .finally(() => setSourcesLoading(false));
+      setSelectedSources(data.map((source) => source.id));
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
   }, [checkHealth, loadOverview, loadTopics]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const timer = setTimeout(() => void loadFeed(controller.signal), 250);
+    const timer = setTimeout(() => void loadFeed(controller.signal), 120);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [loadFeed]);
 
   useEffect(() => {
     const socket = io({ withCredentials: true });
     socket.on('collection:status', (event: CollectionEvent) => {
-      if (event.status === 'started') setLiveStatus('正在采集');
-      if (event.status === 'failed') {
-        setLiveStatus('采集失败');
-        setError(event.error ?? '采集失败');
-      }
+      if (event.status === 'failed') setError(event.error ?? '采集失败');
       if (event.status === 'completed') {
-        setLiveStatus('刚刚更新 ' + (event.stats?.saved ?? 0) + ' 条');
+        digestCache.current = null;
         void loadFeed();
         void loadOverview();
       }
@@ -175,19 +165,17 @@ function SignalDock() {
       return;
     }
     setCollecting(true);
-    setLiveStatus('正在采集');
     try {
       const result = await request<CollectionResult>('/api/collect/run', {
         method: 'POST',
         body: JSON.stringify({ sources: selectedSources })
       });
       setCollection(result);
-      setLiveStatus('刚刚更新 ' + result.persistence.saved + ' 条');
+      digestCache.current = null;
       setPage(1);
       await Promise.all([loadFeed(), loadOverview()]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '采集失败');
-      setLiveStatus('采集失败');
     } finally {
       setCollecting(false);
     }
@@ -318,27 +306,62 @@ function SignalDock() {
     }
   };
 
-  const loadDigest = async () => {
+  // 点击即打开弹窗，先展示加载态；5 分钟内重复点击直接命中缓存，不再等接口
+  const loadDigest = useCallback(async () => {
+    setDigestOpen(true);
+    const cached = digestCache.current;
+    if (cached && Date.now() - cached.at < 5 * 60_000) {
+      setDigest(cached.data);
+      setDigestLoading(false);
+      return;
+    }
+    setDigestLoading(true);
     try {
-      setDigest((await request<{ data: Digest }>('/api/notifications/digest?period=daily')).data);
+      const data = (await request<{ data: Digest }>('/api/notifications/digest?period=daily')).data;
+      digestCache.current = { data, at: Date.now() };
+      setDigest(data);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '摘要加载失败');
+      if (!digestCache.current) setDigestOpen(false);
+    } finally {
+      setDigestLoading(false);
     }
-  };
+  }, []);
 
   const changeMode = (mode: FeedMode) => {
     setFeedMode(mode);
     setPage(1);
   };
 
+  const topicSettingsProps = {
+    sources,
+    selectedSources,
+    topicName,
+    topicAliases,
+    topicExcludes,
+    topics,
+    enabledKeywordCount,
+    keywordDrafts,
+    onSelectedSourcesChange: setSelectedSources,
+    onTopicNameChange: setTopicName,
+    onTopicAliasesChange: setTopicAliases,
+    onTopicExcludesChange: setTopicExcludes,
+    onCreateTopic: (event: FormEvent) => void createTopic(event),
+    onPatchTopic: (topic: Topic, update: Partial<Topic>) => void patchTopic(topic, update),
+    onDeleteTopic: confirmDeleteTopic,
+    onPatchKeyword: (topic: Topic, keyword: Keyword, update: Partial<Keyword>) => void patchKeyword(topic, keyword, update),
+    onDeleteKeyword: (topic: Topic, keyword: Keyword) => void deleteKeyword(topic, keyword),
+    onAddKeyword: (topic: Topic) => void addKeyword(topic),
+    onKeywordDraftChange: (topicId: string, value: string) => setKeywordDrafts((current) => ({ ...current, [topicId]: value })),
+    onStartEdit: (value: EditingValue, nextEditValue: string) => { setEditing(value); setEditValue(nextEditValue); }
+  };
+
   return (
     <div className="app-frame">
       <AppHeader
-        feedMode={feedMode}
         serviceStatus={serviceStatus}
         unreadCount={overview.unread}
         collecting={collecting}
-        onChangeMode={changeMode}
         onCheckHealth={() => void checkHealth()}
         onLoadDigest={() => void loadDigest()}
         onRunCollection={() => void runCollection()}
@@ -349,6 +372,7 @@ function SignalDock() {
           void request('/api/auth/logout', { method: 'POST' }).then(() => window.dispatchEvent(new Event('signaldock:unauthorized'))).catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
         }}
       />
+      <TopicTagBar topics={topics} loading={topicsLoading} onManage={() => navigate('manage')} />
       {error && <Alert className="page-alert" type="error" title={error} closable onClose={() => setError('')} showIcon />}
       {collection && activeView === 'inbox' && <Alert className="page-alert" type="success" title={`采集完成：新增 ${collection.persistence.saved} 条，重复 ${collection.persistence.duplicates} 条`} description="勾选多条线索，点击“提炼选题”，继续形成提纲与行动。" action={<Button onClick={() => setCollection(null)}>知道了</Button>} />}
       {activeView === 'inbox' ? <main className="focus-layout">
@@ -368,7 +392,7 @@ function SignalDock() {
           onSearchChange={value => { setSearchTerm(value); setPage(1); }}
           onSourceChange={(source) => { setSourceFilter(source); setPage(1); }}
           onPageChange={setPage}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => navigate('manage')}
           onOpenEvent={(item) => void openEvent(item)}
           selectedIds={selectedIds}
           generating={generating}
@@ -382,53 +406,19 @@ function SignalDock() {
           onFeedback={(item, value) => void sendFeedback(item, value)}
           onMarkRead={(item) => void markRead(item)}
         />
-        <FocusAside
-          topics={topics}
-          sources={sources}
-          selectedSources={selectedSources}
-          overview={overview}
-          collection={collection}
-          liveStatus={liveStatus}
-          topicsLoading={topicsLoading}
-          sourcesLoading={sourcesLoading}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onLoadDigest={() => void loadDigest()}
-        />
-      </main> : activeView === 'topics' || activeView === 'actions' ? <EditorialWorkspace view={activeView} selectedId={briefId} revision={briefRevision} onSelect={setBriefId} onNavigate={navigate} onDirty={setEditorialDirty} /> : <OperationsView view={activeView} onError={setError} />}
-      <TopicSettingsDrawer
-        open={settingsOpen}
-        sources={sources}
-        selectedSources={selectedSources}
-        topicName={topicName}
-        topicAliases={topicAliases}
-        topicExcludes={topicExcludes}
-        topics={topics}
-        enabledKeywordCount={enabledKeywordCount}
-        keywordDrafts={keywordDrafts}
-        onClose={() => setSettingsOpen(false)}
-        onSelectedSourcesChange={setSelectedSources}
-        onTopicNameChange={setTopicName}
-        onTopicAliasesChange={setTopicAliases}
-        onTopicExcludesChange={setTopicExcludes}
-        onCreateTopic={(event) => void createTopic(event)}
-        onPatchTopic={(topic, update) => void patchTopic(topic, update)}
-        onDeleteTopic={confirmDeleteTopic}
-        onPatchKeyword={(topic, keyword, update) => void patchKeyword(topic, keyword, update)}
-        onDeleteKeyword={(topic, keyword) => void deleteKeyword(topic, keyword)}
-        onAddKeyword={(topic) => void addKeyword(topic)}
-        onKeywordDraftChange={(topicId, value) => setKeywordDrafts((current) => ({ ...current, [topicId]: value }))}
-        onStartEdit={(value, nextEditValue) => { setEditing(value); setEditValue(nextEditValue); }}
-      />
+      </main> : activeView === 'topics' || activeView === 'actions' ? <EditorialWorkspace view={activeView} selectedId={briefId} revision={briefRevision} onSelect={setBriefId} onNavigate={navigate} onDirty={setEditorialDirty} /> : <SettingsPage view={activeView as SettingsView} onNavigate={navigate} onError={setError} topicSettings={topicSettingsProps} />}
       <AppModals
         editing={editing}
         editValue={editValue}
         eventDetail={eventDetail}
         digest={digest}
+        digestOpen={digestOpen}
+        digestLoading={digestLoading}
         onEditValueChange={setEditValue}
         onSaveEdit={() => void saveEdit()}
         onCloseEdit={() => setEditing(null)}
         onCloseEvent={() => setEventDetail(null)}
-        onCloseDigest={() => setDigest(null)}
+        onCloseDigest={() => setDigestOpen(false)}
       />
     </div>
   );

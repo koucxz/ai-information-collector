@@ -51,7 +51,7 @@ export function InboxView(props: InboxViewProps) {
         <Segmented
           value={props.feedSort}
           options={[
-            { label: '为我排序', value: 'personalized' },
+            { label: '推荐', value: 'personalized' },
             { label: '最新', value: 'latest' },
             { label: '重要', value: 'importance' }
           ]}
@@ -84,7 +84,7 @@ export function InboxView(props: InboxViewProps) {
       <div className="batch-toolbar"><div><strong>综合提炼选题</strong><p>选择 2–20 条线索，一起提炼选题和行动建议。已选 {props.selectedIds.length} 条</p></div><div><Button onClick={props.onSelectPage} disabled={props.generating || !props.items.length}>选择当前页</Button><Button onClick={props.onClearSelection} disabled={props.generating || !props.selectedIds.length}>清空</Button><Button type="primary" icon={<Sparkles size={14} />} loading={props.generating} disabled={props.selectedIds.length < 2} onClick={props.onGenerate}>提炼选题</Button></div></div>
 
       <div className="feed-list">
-        {props.loading && Array.from({ length: 10 }, (_, index) => <div className="feed-skeleton" key={index}><Skeleton active title={{ width: '42%' }} paragraph={{ rows: 2, width: ['68%', '48%'] }} /></div>)}
+        {props.loading && Array.from({ length: 5 }, (_, index) => <div className="feed-skeleton" key={index}><Skeleton active title={{ width: '42%' }} paragraph={{ rows: 2, width: ['68%', '48%'] }} /></div>)}
         {!props.loading && props.items.length === 0 && (
           <Empty
             className="empty-feed"
