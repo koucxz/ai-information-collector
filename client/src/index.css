@@ -331,96 +331,6 @@ button { cursor: pointer; }
 .feed-skeleton .ant-skeleton { max-width: 860px; }
 .feed-pagination { display: flex; justify-content: center; margin-top: 24px; }
 
-.focus-aside {
-  border-left: 1px solid #e0e5eb;
-  padding: 26px 24px;
-  background: #fbfcfd;
-}
-
-.aside-section {
-  border-bottom: 1px solid #e1e6eb;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-}
-
-.aside-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.aside-title h3 { margin: 0; font-size: 13px; font-weight: 620; }
-.aside-title > span { overflow: hidden; color: #8a94a4; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.aside-title .ant-btn { width: 26px; height: 26px; padding: 0; color: #677486; }
-
-.topic-overview { display: grid; gap: 3px; min-height: 42px; margin-top: 11px; }
-
-.topic-overview button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  border: 0;
-  border-radius: 5px;
-  padding: 9px 10px;
-  color: #596577;
-  background: transparent;
-  font-size: 11px;
-}
-
-.topic-overview button:hover { color: #145b3b; background: #eef5f0; }
-.topic-overview button.active { color: #145b3b; background: #e7f3eb; }
-.topic-overview button > span { display: flex; align-items: center; min-width: 0; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.topic-overview i { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: #42a675; }
-.topic-overview i.paused { background: #98a2b3; }
-.topic-overview b { font-weight: 550; }
-.topic-overview .empty-topic { justify-content: center; border: 1px dashed #cfd6df; color: #7b8798; }
-
-.collection-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 16px 0 0;
-}
-
-.collection-stats div + div { border-left: 1px solid #e1e5ea; padding-left: 11px; }
-.collection-stats dt { color: #8490a0; font-size: 9px; }
-.collection-stats dd { margin: 6px 0 0; font-size: 15px; font-weight: 620; }
-
-.source-dots { display: flex; flex-wrap: wrap; gap: 6px; min-height: 31px; margin-top: 15px; }
-
-.source-dots span {
-  border: 1px solid #dfe4e9;
-  border-radius: 4px;
-  padding: 4px 7px;
-  color: #98a2b3;
-  background: #fff;
-  font-size: 9px;
-}
-
-.source-dots span.enabled { border-color: #cfe4d6; color: #40634f; background: #f0f7f2; }
-.manage-sources { height: 27px; margin-top: 10px; padding: 0 5px; color: #667085; font-size: 10px; }
-
-.digest-button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  border: 1px solid #cfe4d6;
-  border-radius: 7px;
-  padding: 13px;
-  color: #264837;
-  background: #edf7f0;
-  text-align: left;
-}
-
-.digest-button:hover { border-color: #9fc6ad; background: #e7f3eb; }
-.digest-button > svg:first-child { color: #16734a; }
-.digest-button > svg:last-child { margin-left: auto; color: #6f8879; }
-.digest-button > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.digest-button strong { font-size: 11px; font-weight: 620; }
-.digest-button small { overflow: hidden; color: #6f8879; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-
 .drawer-section { padding: 3px 0 24px; }
 .drawer-section + .drawer-section { border-top: 1px solid #e6e9ed; padding-top: 24px; }
 
@@ -513,9 +423,6 @@ button { cursor: pointer; }
 
 @media (max-width: 1040px) {
   .focus-layout { grid-template-columns: 1fr; }
-  .focus-aside { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; border-top: 1px solid #e0e5eb; border-left: 0; }
-  .aside-section { margin: 0; }
-  .digest-button { align-self: start; }
 }
 
 @media (max-width: 760px) {
@@ -533,8 +440,6 @@ button { cursor: pointer; }
   .feed-tools .ant-input-affix-wrapper { flex: 1; width: auto; }
   .feed-row { grid-template-columns: minmax(0, 1fr) 48px; gap: 10px; padding-left: 13px; }
   .feed-actions { opacity: 1; }
-  .focus-aside { grid-template-columns: 1fr; padding: 22px 18px 30px; }
-  .aside-section { padding-bottom: 20px; }
   .source-checkboxes { grid-template-columns: 1fr; }
 }
 
