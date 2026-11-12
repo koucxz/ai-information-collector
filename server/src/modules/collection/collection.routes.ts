@@ -12,7 +12,7 @@ export const collectionRouter = Router();
 collectionRouter.get('/preview', async (request, response) => {
   const requested = typeof request.query.sources === 'string'
     ? request.query.sources.split(',').map((source) => source.trim()).filter(Boolean)
-    : [typeof request.query.source === 'string' ? request.query.source : 'fixture'];
+    : [typeof request.query.source === 'string' ? request.query.source : sourceCatalog[0].id];
   const { adapters, unknown } = createSourceAdapters(requested);
   if (unknown.length) return response.status(400).json({ error: `不支持的信息源：${unknown.join('、')}` });
   const result = await collectTopics(topicStore.list(), adapters);
@@ -26,7 +26,7 @@ collectionRouter.get('/runs', (request, response) => response.json({ data: colle
 collectionRouter.get('/health', (_request, response) => response.json({ data: collectionRunStore.health() }));
 
 collectionRouter.post('/run', async (request, response) => {
-  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : sourceCatalog.filter((source) => source.id !== 'fixture').map((source) => source.id);
+  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : sourceCatalog.map((source) => source.id);
   if (!sources.length) return response.status(400).json({ error: '至少选择一个信息源' });
   try {
     const outcome = await collectionRunner.trigger(sources);

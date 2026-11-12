@@ -40,6 +40,31 @@ const resolveEventKey = (title: string) => {
 export const dedupeKeyFor = (item: Pick<SearchResult, 'url' | 'fingerprint'>) => { const normalizedUrl = dedupeUrl(item.url); return normalizedUrl ? `url:${normalizedUrl}` : `fingerprint:${item.fingerprint}`; };
 const mapRow = (row: Record<string, unknown>): StoredInformation => ({ source: String(row.source), sourceName: String(row.source_name), keyword: String(row.keyword), title: String(row.title), summary: String(row.summary), content: String(row.content), url: String(row.url), publishedAt: row.published_at ? String(row.published_at) : null, collectedAt: String(row.collected_at), fingerprint: String(row.fingerprint), id: String(row.id), eventKey: String(row.event_key), isRead: Boolean(row.is_read), isSaved: Boolean(row.is_saved), isArchived: Boolean(row.is_archived), relevanceScore: Number(row.relevance_score), importanceScore: Number(row.importance_score), aiStatus: String(row.ai_status), analysisSummary: String(row.analysis_summary), analysisReason: String(row.analysis_reason), feedback: row.feedback ? String(row.feedback) as FeedbackValue : null, personalizedScore: Number(row.personalized_score ?? 0) });
 
+/**
+ * 列表只展示标题与摘要，正文 / 指纹等大字段无需下发。
+ * 线上单条信息的正文可达 5KB，10 条列表曾返回 500KB+，跨境链路下首屏特别慢。
+ */
+const FEED_TEXT_LIMIT = 320;
+const clip = (value: string, limit = FEED_TEXT_LIMIT) => value.length > limit ? `${value.slice(0, limit).trimEnd()}…` : value;
+const mapFeedRow = (row: Record<string, unknown>) => ({
+  id: String(row.id),
+  source: String(row.source),
+  sourceName: String(row.source_name),
+  keyword: String(row.keyword),
+  title: String(row.title),
+  summary: clip(String(row.summary ?? '')),
+  url: String(row.url),
+  collectedAt: String(row.collected_at),
+  importanceScore: Number(row.importance_score),
+  relevanceScore: Number(row.relevance_score),
+  isRead: Boolean(row.is_read),
+  aiStatus: String(row.ai_status),
+  analysisSummary: clip(String(row.analysis_summary ?? '')),
+  analysisReason: clip(String(row.analysis_reason ?? ''), 160),
+  feedback: row.feedback ? String(row.feedback) as FeedbackValue : null,
+  personalizedScore: Number(row.personalized_score ?? 0)
+});
+
 const feedbackJoin = 'LEFT JOIN information_feedback feedback_row ON feedback_row.item_id = information_items.id';
 const feedbackSelect = `information_items.*, feedback_row.value AS feedback,
   (information_items.importance_score * 0.55 + information_items.relevance_score * 0.45
@@ -92,7 +117,14 @@ export const informationStore = {
     const order = options.sort === 'importance' ? 'information_items.importance_score DESC, information_items.collected_at DESC' : options.sort === 'personalized' ? 'personalized_score DESC, information_items.collected_at DESC' : 'information_items.collected_at DESC';
     const total = Number((db.prepare(`SELECT COUNT(*) AS count FROM information_items ${where}`).get(...params) as { count: number }).count);
     const rows = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, options.pageSize, (options.page - 1) * options.pageSize) as unknown as Record<string, unknown>[];
-    return { data: rows.map(mapRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
+    return { data: rows.map(mapFeedRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
+  },
+  overview() {
+    const row = db.prepare(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread,
+      COALESCE(SUM(CASE WHEN relevance_score >= 0.8 THEN 1 ELSE 0 END), 0) AS relevant
+      FROM information_items WHERE is_archived = 0`).get() as { total: number; unread: number; relevant: number };
+    return { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant) };
   },
   findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   findByResult(item: Pick<SearchResult, 'source' | 'url' | 'fingerprint'>) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.source = ? AND information_items.dedupe_key = ?`).get(item.source, dedupeKeyFor(item)) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },

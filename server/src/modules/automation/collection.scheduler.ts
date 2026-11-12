@@ -4,7 +4,7 @@ import { runCollection } from '../collection/collection.service.js';
 import { sourceCatalog } from '../collection/source.registry.js';
 import { notificationEvents } from '../notifications/events.js';
 
-export const defaultCollectionSources: string[] = sourceCatalog.filter((source) => source.id !== 'fixture').map((source) => source.id);
+export const defaultCollectionSources: string[] = sourceCatalog.map((source) => source.id);
 
 export class CollectionRunner {
   private running = false;

@@ -4,8 +4,8 @@ import { FixtureAdapter } from './fixture.adapter.js';
 import { GitHubAdapter } from './github.adapter.js';
 import { BaiduIndexedAdapter, BilibiliAdapter, JuejinAdapter } from './public-source.adapter.js';
 
+// fixture 适配器保留供本地测试使用，但不再作为可选采集来源暴露给前端
 export const sourceCatalog = [
-  { id: 'fixture', name: '本地测试数据' },
   { id: 'baidu', name: '百度' },
   { id: 'bilibili', name: 'B 站' },
   { id: 'weibo', name: '微博' },
@@ -14,8 +14,7 @@ export const sourceCatalog = [
   { id: 'github', name: 'GitHub' }
 ] as const;
 
-type SourceId = typeof sourceCatalog[number]['id'];
-const factories: Record<SourceId, () => SourceAdapter> = {
+const factories: Record<string, () => SourceAdapter> = {
   fixture: () => new FixtureAdapter(),
   baidu: () => new BaiduAdapter(),
   bilibili: () => new BilibiliAdapter(),
@@ -28,6 +27,6 @@ const factories: Record<SourceId, () => SourceAdapter> = {
 export const createSourceAdapters = (sources: string[]) => {
   const unknown = sources.filter((source) => !(source in factories));
   if (unknown.length) return { adapters: [], unknown };
-  return { adapters: [...new Set(sources)].map((source) => factories[source as SourceId]()), unknown: [] };
+  return { adapters: [...new Set(sources)].map((source) => factories[source]()), unknown: [] };
 };
 

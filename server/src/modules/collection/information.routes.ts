@@ -16,6 +16,8 @@ informationRouter.get('/', (request, response) => {
   if ([minImportance, minRelevance].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1))) return response.status(400).json({ error: '筛选参数无效' });
   return response.json(informationStore.feed({ page, pageSize, sort, unread, saved, archived, query, source, minImportance, minRelevance }));
 });
+// 概览合并为一次查询，避免首屏并发三次拉取信息流
+informationRouter.get('/overview', (_request, response) => response.json(informationStore.overview()));
 informationRouter.get('/:id', (request, response) => {
   const item = informationStore.findById(request.params.id);
   if (!item) return response.status(404).json({ error: '信息不存在' });
