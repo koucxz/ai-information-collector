@@ -51,12 +51,18 @@
 .topic-tag { display: inline-flex; align-items: center; gap: 6px; max-width: 170px; height: 25px; padding: 0 10px; overflow: hidden; border: 1px solid #d7e6dc; border-radius: 13px; color: #2c5c43; background: #f0f7f2; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .topic-tag:hover { border-color: #9fc6ad; background: #e5f3ea; color: #145b3b; }
 .topic-tag i { flex: 0 0 auto; width: 5px; height: 5px; border-radius: 50%; background: #42a675; }
+.topic-tag em { margin-left: 2px; font-size: 10px; font-style: normal; opacity: .62; }
 .topic-tag.is-paused { border-color: #e1e5ea; color: #8a94a4; background: #f5f6f8; }
 .topic-tag.is-paused i { background: #b3bcc8; }
 .topic-tag.is-placeholder, .topic-tag.is-empty { border-style: dashed; color: #8a94a4; background: #fff; }
+/* 选中的主题标签即当前筛选条件 */
+.topic-tag.is-active { border-color: #16734a; color: #fff; background: #16734a; font-weight: 600; }
+.topic-tag.is-active i { background: #d8f2e3; }
+.topic-tag.is-active em { opacity: .85; }
+.topic-tag.is-active:hover { border-color: #12613e; color: #fff; background: #12613e; }
 .topic-tag-more { color: #8a94a4; font-size: 11px; }
-.topic-tag-add { display: grid; place-items: center; width: 25px; height: 25px; border: 1px dashed #cbd5df; border-radius: 50%; color: #7b8798; background: #fff; }
-.topic-tag-add:hover { border-color: #16734a; color: #16734a; }
+.topic-tag-manage { display: inline-flex; align-items: center; gap: 4px; height: 25px; border: 0; border-radius: 5px; padding: 0 8px; color: #667085; background: transparent; font-size: 11px; }
+.topic-tag-manage:hover { color: #16734a; background: #eaf3ed; }
 
 /* 独立设置页：左侧菜单平铺 */
 .settings-layout { grid-column: 2; display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 118px); min-width: 0; background: #f7f8fa; }

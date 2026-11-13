@@ -1,11 +1,24 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { db } from '../../db/client.js';
+import { db, topicStore } from '../../db/client.js';
 import type { SearchResult } from './collection.types.js';
 import { dedupeUrl, normalizeUrl } from './normalize.js';
+import { normalizeWords, topicQueryWords } from './topic-filter.js';
 
 export type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
 export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; isSaved: boolean; isArchived: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null; personalizedScore: number };
-export type FeedOptions = { source?: string; unread?: boolean; saved?: boolean; archived?: boolean; query?: string; minImportance?: number; minRelevance?: number; sort?: 'latest' | 'importance' | 'personalized'; page: number; pageSize: number };
+export type FeedOptions = { source?: string; unread?: boolean; saved?: boolean; archived?: boolean; query?: string; minImportance?: number; minRelevance?: number; topicWords?: string[]; sort?: 'latest' | 'importance' | 'personalized'; page: number; pageSize: number };
+export type FeedOverview = { all: number; unread: number; relevant: number; globalAll: number; globalUnread: number; topicCounts: Record<string, number> };
+
+/** 主题筛选条件：不传 = 不过滤，空数组 = 该主题没有历史查询词（返回空列表）。 */
+const topicCondition = (words?: string[]) => {
+  if (words === undefined) return { sql: '', params: [] as string[] };
+  const normalized = normalizeWords(words);
+  if (!normalized.length) return { sql: '1 = 0', params: [] as string[] };
+  return {
+    sql: `LOWER(information_items.keyword) IN (${normalized.map(() => '?').join(',')})`,
+    params: normalized
+  };
+};
 
 const canonicalTitle = (title: string) => title.toLocaleLowerCase()
   .replace(/[【\[（(][^】\]）)]*[】\]）)]/g, ' ')
@@ -100,6 +113,8 @@ export const informationStore = {
   list() { return (db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} ORDER BY collected_at DESC`).all() as unknown as Record<string, unknown>[]).map(mapRow); },
   feed(options: FeedOptions) {
     const conditions: string[] = []; const params: Array<string | number> = [];
+    const topic = topicCondition(options.topicWords);
+    if (topic.sql) { conditions.push(topic.sql); params.push(...topic.params); }
     if (options.source) { conditions.push('information_items.source = ?'); params.push(options.source); }
     if (options.unread) conditions.push('information_items.is_read = 0');
     if (options.saved) conditions.push('information_items.is_saved = 1');
@@ -119,12 +134,24 @@ export const informationStore = {
     const rows = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, options.pageSize, (options.page - 1) * options.pageSize) as unknown as Record<string, unknown>[];
     return { data: rows.map(mapFeedRow), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
   },
-  overview() {
+  overview(topicWords?: string[]): FeedOverview {
+    const filter = topicCondition(topicWords);
+    const where = `WHERE information_items.is_archived = 0${filter.sql ? ` AND ${filter.sql}` : ''}`;
     const row = db.prepare(`SELECT COUNT(*) AS total,
-      COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread,
-      COALESCE(SUM(CASE WHEN relevance_score >= 0.8 THEN 1 ELSE 0 END), 0) AS relevant
-      FROM information_items WHERE is_archived = 0`).get() as { total: number; unread: number; relevant: number };
-    return { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant) };
+      COALESCE(SUM(CASE WHEN information_items.is_read = 0 THEN 1 ELSE 0 END), 0) AS unread,
+      COALESCE(SUM(CASE WHEN information_items.relevance_score >= 0.8 THEN 1 ELSE 0 END), 0) AS relevant
+      FROM information_items ${where}`).get(...filter.params) as { total: number; unread: number; relevant: number };
+    const globalRow = db.prepare(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread
+      FROM information_items WHERE is_archived = 0`).get() as { total: number; unread: number };
+    // 一次分组查询即可给所有主题标签标出条数，不需要前端逐主题拉取
+    const counts = db.prepare('SELECT LOWER(keyword) AS word, COUNT(*) AS count FROM information_items WHERE is_archived = 0 GROUP BY LOWER(keyword)').all() as unknown as Array<{ word: string; count: number }>;
+    const byWord = new Map(counts.map((entry) => [entry.word, Number(entry.count)]));
+    const topicCounts: Record<string, number> = {};
+    for (const item of topicStore.list()) {
+      topicCounts[item.id] = normalizeWords(topicQueryWords(item)).reduce((sum, word) => sum + (byWord.get(word) ?? 0), 0);
+    }
+    return { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant), globalAll: Number(globalRow.total), globalUnread: Number(globalRow.unread), topicCounts };
   },
   findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   findByResult(item: Pick<SearchResult, 'source' | 'url' | 'fingerprint'>) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.source = ? AND information_items.dedupe_key = ?`).get(item.source, dedupeKeyFor(item)) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },

@@ -9,7 +9,8 @@ import type {
   FeedOverview,
   FeedResponse,
   FeedSort,
-  SourceOption
+  SourceOption,
+  Topic
 } from '../../shared/types';
 
 type InboxViewProps = {
@@ -18,7 +19,9 @@ type InboxViewProps = {
   feedMode: FeedMode;
   searchTerm: string;
   sourceFilter: string;
+  topicFilter: string;
   sources: SourceOption[];
+  topics: Topic[];
   items: FeedItem[];
   loading: boolean;
   feedResponse: FeedResponse;
@@ -27,6 +30,7 @@ type InboxViewProps = {
   onModeChange: (mode: FeedMode) => void;
   onSearchChange: (value: string) => void;
   onSourceChange: (value: string) => void;
+  onTopicChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onOpenSettings: () => void;
   onOpenEvent: (item: FeedItem) => void;
@@ -74,6 +78,10 @@ export function InboxView(props: InboxViewProps) {
             value={props.searchTerm}
             onChange={(event) => props.onSearchChange(event.target.value)}
           />
+          <select aria-label="按主题筛选" value={props.topicFilter} onChange={(event) => props.onTopicChange(event.target.value)}>
+            <option value="">全部主题</option>
+            {props.topics.map((topic) => <option value={topic.id} key={topic.id}>{topic.name}</option>)}
+          </select>
           <select aria-label="按来源筛选" value={props.sourceFilter} onChange={(event) => props.onSourceChange(event.target.value)}>
             <option value="">全部来源</option>
             {props.sources.map((source) => <option value={source.id} key={source.id}>{source.name}</option>)}
@@ -89,9 +97,11 @@ export function InboxView(props: InboxViewProps) {
           <Empty
             className="empty-feed"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={props.searchTerm ? '没有匹配结果' : '还没有符合条件的信息'}
+            description={props.searchTerm ? '没有匹配结果' : props.topicFilter ? '该主题下暂无信息' : '还没有符合条件的信息'}
           >
-            {!props.searchTerm && <Button type="primary" onClick={props.onOpenSettings}>添加关注主题</Button>}
+            {props.topicFilter
+              ? <Button onClick={() => props.onTopicChange('')}>查看全部信息</Button>
+              : !props.searchTerm && <Button type="primary" onClick={props.onOpenSettings}>添加关注主题</Button>}
           </Empty>
         )}
         {!props.loading && props.items.map((item) => (

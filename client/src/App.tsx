@@ -28,9 +28,10 @@ function SignalDock() {
   const [feedResponse, setFeedResponse] = useState<FeedResponse>({ data: [], page: 1, pageSize: 10, total: 0, totalPages: 0 });
   const [feedLoading, setFeedLoading] = useState(true);
   const [topicsLoading, setTopicsLoading] = useState(true);
-  const [overview, setOverview] = useState({ all: 0, unread: 0, relevant: 0 });
+  const [overview, setOverview] = useState<FeedOverview>({ all: 0, unread: 0, relevant: 0, globalAll: 0, globalUnread: 0, topicCounts: {} });
   const [page, setPage] = useState(1);
   const [sourceFilter, setSourceFilter] = useState('');
+  const [topicFilter, setTopicFilter] = useState('');
   const [feedMode, setFeedMode] = useState<FeedMode>('all');
   const [feedSort, setFeedSort] = useState<FeedSort>('personalized');
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +60,12 @@ function SignalDock() {
     if (leavingEditor && editorialDirty && !window.confirm('有尚未保存的修改，离开会放弃这些修改，继续吗？')) return;
     setActiveView(view);
   };
+  // 顶部主题标签与列表内的主题下拉共用同一个筛选状态
+  const selectTopic = (topicId: string) => {
+    setTopicFilter(topicId);
+    setPage(1);
+    if (activeView !== 'inbox') navigate('inbox');
+  };
   const generateTopics = async () => {
     if (generating || selectedIds.length < 2) return;
     setGenerating(true); setError('');
@@ -80,7 +87,8 @@ function SignalDock() {
       ...(searchTerm.trim() ? { q: searchTerm.trim() } : {}),
       ...(feedMode === 'unread' ? { unread: 'true' } : {}),
       ...(feedMode === 'relevant' ? { minRelevance: '0.8' } : {}),
-      ...(sourceFilter ? { source: sourceFilter } : {})
+      ...(sourceFilter ? { source: sourceFilter } : {}),
+      ...(topicFilter ? { topicId: topicFilter } : {})
     });
     try {
       const data = await request<FeedResponse>('/api/information?' + query, { signal });
@@ -90,20 +98,24 @@ function SignalDock() {
     } finally {
       if (!signal?.aborted && requestId === feedRequest.current) setFeedLoading(false);
     }
-  }, [feedMode, feedSort, page, sourceFilter, searchTerm]);
+  }, [feedMode, feedSort, page, sourceFilter, searchTerm, topicFilter]);
 
   const loadOverview = useCallback(async () => {
+    const query = topicFilter ? '?topicId=' + encodeURIComponent(topicFilter) : '';
     try {
-      setOverview(await request<FeedOverview>('/api/information/overview'));
+      setOverview(await request<FeedOverview>('/api/information/overview' + query));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '概览加载失败');
     }
-  }, []);
+  }, [topicFilter]);
 
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
     try {
-      setTopics((await request<{ data: Topic[] }>('/api/topics')).data);
+      const list = (await request<{ data: Topic[] }>('/api/topics')).data;
+      setTopics(list);
+      // 主题被删除后，不能再让列表停留在一个不存在的筛选值上
+      setTopicFilter((current) => current && !list.some((topic) => topic.id === current) ? '' : current);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '主题加载失败');
     } finally {
@@ -360,7 +372,7 @@ function SignalDock() {
     <div className="app-frame">
       <AppHeader
         serviceStatus={serviceStatus}
-        unreadCount={overview.unread}
+        unreadCount={overview.globalUnread}
         collecting={collecting}
         onCheckHealth={() => void checkHealth()}
         onLoadDigest={() => void loadDigest()}
@@ -372,7 +384,15 @@ function SignalDock() {
           void request('/api/auth/logout', { method: 'POST' }).then(() => window.dispatchEvent(new Event('signaldock:unauthorized'))).catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
         }}
       />
-      <TopicTagBar topics={topics} loading={topicsLoading} onManage={() => navigate('manage')} />
+      <TopicTagBar
+        topics={topics}
+        loading={topicsLoading}
+        selectedTopicId={topicFilter}
+        totalCount={overview.globalAll}
+        topicCounts={overview.topicCounts}
+        onSelectTopic={selectTopic}
+        onManage={() => navigate('manage')}
+      />
       {error && <Alert className="page-alert" type="error" title={error} closable onClose={() => setError('')} showIcon />}
       {collection && activeView === 'inbox' && <Alert className="page-alert" type="success" title={`采集完成：新增 ${collection.persistence.saved} 条，重复 ${collection.persistence.duplicates} 条`} description="勾选多条线索，点击“提炼选题”，继续形成提纲与行动。" action={<Button onClick={() => setCollection(null)}>知道了</Button>} />}
       {activeView === 'inbox' ? <main className="focus-layout">
@@ -382,7 +402,9 @@ function SignalDock() {
           feedMode={feedMode}
           searchTerm={searchTerm}
           sourceFilter={sourceFilter}
+          topicFilter={topicFilter}
           sources={sources}
+          topics={topics}
           items={visibleItems}
           loading={feedLoading}
           feedResponse={feedResponse}
@@ -391,6 +413,7 @@ function SignalDock() {
           onModeChange={changeMode}
           onSearchChange={value => { setSearchTerm(value); setPage(1); }}
           onSourceChange={(source) => { setSourceFilter(source); setPage(1); }}
+          onTopicChange={(topicId) => { setTopicFilter(topicId); setPage(1); }}
           onPageChange={setPage}
           onOpenSettings={() => navigate('manage')}
           onOpenEvent={(item) => void openEvent(item)}

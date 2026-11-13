@@ -180,6 +180,7 @@ button { cursor: pointer; }
 
 .feed-tools select {
   height: 34px;
+  max-width: 132px;
   border: 1px solid #d8dee7;
   border-radius: 6px;
   outline: none;
@@ -450,7 +451,7 @@ button { cursor: pointer; }
   .page-heading .ant-segmented-group { display: grid; grid-template-columns: repeat(3, 1fr); }
   .filter-tabs button { padding-inline: 9px; }
   .feed-tools { align-items: stretch; flex-direction: column; }
-  .feed-tools select { width: 100%; }
+  .feed-tools select { width: 100%; max-width: none; }
   .feed-row { grid-template-columns: 1fr; padding-right: 0; }
   .score-column { align-items: center; flex-direction: row; gap: 6px; }
   .score-column .ant-btn { margin: 0 0 0 auto; }

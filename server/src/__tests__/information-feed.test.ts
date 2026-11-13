@@ -18,6 +18,30 @@ describe('information feed', () => {
     expect(response.body.data[0].source).toBe('baidu');
   });
 
+  it('filters information by topic and reports per-topic counts', async () => {
+    const coding = await request(app).post('/api/topics').send({ name: 'AI 编程', aliases: ['Copilot'] });
+    const ops = await request(app).post('/api/topics').send({ name: '运维' });
+    await request(app).post(`/api/topics/${coding.body.data.id}/keywords`).send({ value: 'Cursor' });
+    await request(app).post(`/api/topics/${ops.body.data.id}/keywords`).send({ value: 'Docker' });
+    const make = (keyword: string, title: string, url: string) => normalizeResult({ source: 'fixture', sourceName: '本地测试数据', keyword, title, summary: '', content: '内容', url, publishedAt: null });
+    informationStore.saveResults([
+      make('Cursor', 'Cursor 编辑器更新', 'https://example.com/topic-1'),
+      make('Copilot', 'Copilot 新版本', 'https://example.com/topic-2'),
+      make('Docker', 'Docker 新版本', 'https://example.com/topic-3')
+    ]);
+
+    const feed = await request(app).get(`/api/information?topicId=${coding.body.data.id}`);
+    expect(feed.body.total).toBe(2);
+    expect(feed.body.data.map((item: { keyword: string }) => item.keyword).sort()).toEqual(['Copilot', 'Cursor']);
+
+    const overview = await request(app).get(`/api/information/overview?topicId=${coding.body.data.id}`);
+    expect(overview.body.all).toBe(2);
+    expect(overview.body.globalAll).toBe(3);
+    expect(overview.body.topicCounts[coding.body.data.id]).toBe(2);
+    expect(overview.body.topicCounts[ops.body.data.id]).toBe(1);
+    expect((await request(app).get('/api/information?topicId=missing')).status).toBe(400);
+  });
+
   it('marks read and returns event sources', async () => {
     const item = normalizeResult({ source: 'fixture', sourceName: '本地测试数据', keyword: 'AI', title: '同一事件', summary: '', content: '内容', url: 'https://example.com/event-1', publishedAt: null });
     const other = normalizeResult({ ...item, source: 'baidu', sourceName: '百度', url: 'https://example.com/event-2' });

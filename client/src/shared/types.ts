@@ -47,7 +47,7 @@ export type CollectionEvent = {
 export type EditingValue =
   | { kind: 'topic'; topic: Topic }
   | { kind: 'keyword'; topic: Topic; keyword: Keyword };
-export type FeedOverview = { all: number; unread: number; relevant: number };
+export type FeedOverview = { all: number; unread: number; relevant: number; globalAll: number; globalUnread: number; topicCounts: Record<string, number> };
 export type WorkspaceView = 'inbox' | 'topics' | 'actions' | 'manage' | 'events' | 'runs' | 'sources' | 'notifications' | 'settings';
 export type BriefSection = { title: string; detail: string; sourceIds: string[] };
 export type BriefTask = { id: string; title: string; done: boolean; date: string };

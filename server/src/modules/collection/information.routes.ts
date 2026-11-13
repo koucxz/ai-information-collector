@@ -1,8 +1,18 @@
 import { Router } from 'express';
 import { informationStore } from './information.store.js';
+import { wordsForTopic } from './topic-filter.js';
+
+/** 解析 topicId：未传 = 不筛选；传入不存在的主题 = 400，避免前端静默展示全量数据。 */
+const parseTopicFilter = (value: unknown): { words?: string[] } | { error: string } => {
+  if (typeof value !== 'string' || !value.trim()) return {};
+  const words = wordsForTopic(value.trim());
+  return words === undefined ? { error: '主题不存在' } : { words };
+};
 
 export const informationRouter = Router();
 informationRouter.get('/', (request, response) => {
+  const filter = parseTopicFilter(request.query.topicId);
+  if ('error' in filter) return response.status(400).json({ error: filter.error });
   const page = Math.max(1, Number(request.query.page) || 1);
   const pageSize = Math.min(50, Math.max(1, Number(request.query.pageSize) || 10));
   const sort = request.query.sort === 'importance' || request.query.sort === 'personalized' ? request.query.sort : 'latest';
@@ -14,10 +24,14 @@ informationRouter.get('/', (request, response) => {
   const minImportance = request.query.minImportance === undefined ? undefined : Number(request.query.minImportance);
   const minRelevance = request.query.minRelevance === undefined ? undefined : Number(request.query.minRelevance);
   if ([minImportance, minRelevance].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1))) return response.status(400).json({ error: '筛选参数无效' });
-  return response.json(informationStore.feed({ page, pageSize, sort, unread, saved, archived, query, source, minImportance, minRelevance }));
+  return response.json(informationStore.feed({ page, pageSize, sort, unread, saved, archived, query, source, minImportance, minRelevance, topicWords: filter.words }));
 });
-// 概览合并为一次查询，避免首屏并发三次拉取信息流
-informationRouter.get('/overview', (_request, response) => response.json(informationStore.overview()));
+// 概览合并为一次查询，避免首屏并发三次拉取信息流；topicId 让计数与当前筛选保持一致
+informationRouter.get('/overview', (request, response) => {
+  const filter = parseTopicFilter(request.query.topicId);
+  if ('error' in filter) return response.status(400).json({ error: filter.error });
+  return response.json(informationStore.overview(filter.words));
+});
 informationRouter.get('/:id', (request, response) => {
   const item = informationStore.findById(request.params.id);
   if (!item) return response.status(404).json({ error: '信息不存在' });
