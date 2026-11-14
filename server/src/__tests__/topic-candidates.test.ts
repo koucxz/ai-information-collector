@@ -41,7 +41,7 @@ describe('Beacon 风格选题推荐与成稿状态', () => {
     expect(candidate.used).toBe(false);
   });
 
-  it('推荐理由可转成选题，正文保存后只有完成检查表才能标记已发布', async () => {
+  it('推荐理由可转成选题，正文保存后可直接标记已发布（检查清单不阻断）', async () => {
     const first = insert('juejin', 'Docker 部署', 'Docker 部署实践与踩坑', 1);
     const second = insert('kr36', 'Docker 部署', '容器化部署的新方案', 3);
     const generated = await request(app).post('/api/briefs/generate').send({ itemIds: [first!.id, second!.id] });
@@ -58,9 +58,9 @@ describe('Beacon 风格选题推荐与成稿状态', () => {
     expect(brief.content).toContain('初稿');
     expect((await request(app).get('/api/briefs')).body.data[0].content).toContain('初稿');
 
-    expect((await request(app).patch('/api/briefs/' + brief.id).send({ version: brief.version, status: 'published' })).status).toBe(400);
+    // 发布前检查是提示式清单（advisory），不阻断标记发布
     const published = await request(app).patch('/api/briefs/' + brief.id).send({
-      version: brief.version, tasks: brief.tasks.map(task => ({ ...task, done: true })), status: 'published'
+      version: brief.version, status: 'published'
     });
     expect(published.status).toBe(200);
     expect(published.body.data.status).toBe('published');

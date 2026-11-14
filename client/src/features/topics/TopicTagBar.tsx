@@ -8,6 +8,7 @@ type TopicTagBarProps = {
   loading: boolean;
   selectedTopicId: string;
   totalCount: number;
+  unclassifiedCount: number;
   topicCounts: Record<string, number>;
   onSelectTopic: (topicId: string) => void;
   onManage: () => void;
@@ -44,6 +45,14 @@ export function TopicTagBar(props: TopicTagBarProps) {
           </button>
         ))}
         {!props.loading && extra > 0 && <span className="topic-tag-more" title={`另有 ${extra} 个主题，可在列表的「按主题筛选」下拉中选择`}>+{extra}</span>}
+        <button
+          className={'topic-tag topic-tag-none' + (props.selectedTopicId === '__none__' ? ' is-active' : '')}
+          aria-pressed={props.selectedTopicId === '__none__'}
+          onClick={() => props.onSelectTopic(props.selectedTopicId === '__none__' ? '' : '__none__')}
+          title="查看没有命中任何主题的信息"
+        >
+          未分类 <em>{props.unclassifiedCount}</em>
+        </button>
         <button className="topic-tag-manage" onClick={props.onManage} aria-label="管理关注主题" title="管理关注主题">
           <Settings2 size={12} />管理
         </button>

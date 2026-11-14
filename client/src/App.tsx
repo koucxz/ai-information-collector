@@ -17,7 +17,8 @@ import type {
   FeedItem, FeedMode, FeedOverview, FeedResponse, FeedSort, Keyword, ServiceStatus, SourceOption, Topic
 } from './shared/types';
 import { LoginView } from './auth/LoginView';
-import { EditorialWorkspace } from './features/editorial/EditorialWorkspace';
+import { SavedView } from './features/library/SavedView';
+import { PostsView } from './features/posts/PostsView';
 import type { EditorialBrief, WorkspaceView } from './shared/types';
 
 function SignalDock() {
@@ -32,7 +33,7 @@ function SignalDock() {
   const [feedResponse, setFeedResponse] = useState<FeedResponse>({ data: [], page: 1, pageSize: 10, total: 0, totalPages: 0 });
   const [feedLoading, setFeedLoading] = useState(true);
   const [topicsLoading, setTopicsLoading] = useState(true);
-  const [overview, setOverview] = useState<FeedOverview>({ all: 0, unread: 0, relevant: 0, globalAll: 0, globalUnread: 0, topicCounts: {} });
+  const [overview, setOverview] = useState<FeedOverview>({ all: 0, unread: 0, relevant: 0, globalAll: 0, globalUnread: 0, topicCounts: {}, unclassified: 0 });
   const [page, setPage] = useState(1);
   const [sourceFilter, setSourceFilter] = useState('');
   const [topicFilter, setTopicFilter] = useState('');
@@ -53,13 +54,20 @@ function SignalDock() {
   const digestCache = useRef<{ data: Digest; at: number } | null>(null);
   const [activeView, setActiveView] = useState<WorkspaceView>('inbox');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [generating, setGenerating] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [briefId, setBriefId] = useState('');
   const [briefRevision, setBriefRevision] = useState(0);
   const [editorialDirty, setEditorialDirty] = useState(false);
   const navigate = (view: WorkspaceView) => {
-    const leavingEditor = !['topics', 'actions'].includes(view) && ['topics', 'actions'].includes(activeView);
-    if (leavingEditor && editorialDirty && !window.confirm('有尚未保存的修改，离开会放弃这些修改，继续吗？')) return;
+    if (activeView === 'posts' && view !== 'posts' && editorialDirty) {
+      modal.confirm({
+        title: '有尚未保存的修改',
+        content: '离开会放弃这些修改，继续吗？',
+        okText: '放弃修改', cancelText: '继续编辑',
+        onOk: () => setActiveView(view)
+      });
+      return;
+    }
     setActiveView(view);
   };
   // 顶部主题标签与列表内的主题下拉共用同一个筛选状态
@@ -68,14 +76,42 @@ function SignalDock() {
     setPage(1);
     if (activeView !== 'inbox') navigate('inbox');
   };
-  const generateTopics = async () => {
-    if (generating || selectedIds.length < 2) return;
-    setGenerating(true); setError('');
+  /** 勾选素材 → 新建文章草稿；草稿会带上这些原文链接，随后在「文章」里写正文。 */
+  const createDraftFromItems = async (itemIds: string[]) => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const result = await request<{ data: EditorialBrief[]; reused: boolean }>('/api/briefs/generate', { method: 'POST', body: JSON.stringify({ itemIds: selectedIds }) });
-      setBriefId(result.data[0]?.id || ''); setBriefRevision(v => v + 1); setActiveView('topics');
-    } catch (caught) { setError(caught instanceof Error ? caught.message : '选题生成失败'); }
-    finally { setGenerating(false); }
+      const { data } = await request<{ data: EditorialBrief }>('/api/briefs', {
+        method: 'POST', feature: '新建草稿', body: JSON.stringify({ itemIds })
+      });
+      setBriefId(data.id);
+      setBriefRevision((value) => value + 1);
+      setSelectedIds([]);
+      setActiveView('posts');
+      notice.success(itemIds.length ? `已用 ${itemIds.length} 条素材新建草稿` : '已新建空白草稿');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '「新建草稿」失败'); }
+    finally { setBusy(false); }
+  };
+  const saveSelected = async () => {
+    if (busy || !selectedIds.length) return;
+    setBusy(true);
+    try {
+      await Promise.all(selectedIds.map((id) => request('/api/information/' + id + '/save', {
+        method: 'PATCH', feature: '加入收藏夹', body: JSON.stringify({ saved: true })
+      })));
+      notice.success(`已把 ${selectedIds.length} 条线索加入收藏夹`);
+      setSelectedIds([]);
+      await Promise.all([loadFeed(), loadOverview()]);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '「加入收藏夹」失败'); }
+    finally { setBusy(false); }
+  };
+  const toggleSave = async (item: FeedItem) => {
+    try {
+      await request('/api/information/' + item.id + '/save', {
+        method: 'PATCH', feature: '收藏管理', body: JSON.stringify({ saved: !item.isSaved })
+      });
+      await loadFeed();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '「收藏管理」失败'); }
   };
 
   const feedRequest = useRef(0);
@@ -384,8 +420,16 @@ function SignalDock() {
         activeView={activeView}
         onNavigate={navigate}
         onLogout={() => {
-          if (editorialDirty && !window.confirm('尚有未保存的修改，确定退出吗？')) return;
-          void request('/api/auth/logout', { method: 'POST' }).then(() => window.dispatchEvent(new Event('signaldock:unauthorized'))).catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
+          const doLogout = () => void request('/api/auth/logout', { method: 'POST' })
+            .then(() => window.dispatchEvent(new Event('signaldock:unauthorized')))
+            .catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
+          modal.confirm({
+            title: editorialDirty ? '退出登录并放弃未保存的修改？' : '退出登录？',
+            content: editorialDirty ? '当前文章有未保存的修改，退出后会丢失。' : '退出后需要重新输入账号密码才能进入。',
+            okText: '退出登录', cancelText: '取消',
+            okButtonProps: { danger: true },
+            onOk: doLogout
+          });
         }}
       />
       <TopicTagBar
@@ -393,6 +437,7 @@ function SignalDock() {
         loading={topicsLoading}
         selectedTopicId={topicFilter}
         totalCount={overview.globalAll}
+        unclassifiedCount={overview.unclassified}
         topicCounts={overview.topicCounts}
         onSelectTopic={selectTopic}
         onManage={() => navigate('manage')}
@@ -420,18 +465,24 @@ function SignalDock() {
           onOpenSettings={() => navigate('manage')}
           onOpenEvent={(item) => void openEvent(item)}
           selectedIds={selectedIds}
-          generating={generating}
+          busy={busy}
           onToggleSelect={id => {
-            if (!selectedIds.includes(id) && selectedIds.length >= 20) { setError('「提炼选题」最多选择 20 条线索'); return; }
+            if (!selectedIds.includes(id) && selectedIds.length >= 20) { setError('「整理线索」最多选择 20 条'); return; }
             setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
           }}
           onSelectPage={() => setSelectedIds(current => [...new Set([...current, ...visibleItems.map(item => item.id)])].slice(0, 20))}
           onClearSelection={() => setSelectedIds([])}
-          onGenerate={() => void generateTopics()}
+          onSaveSelected={() => void saveSelected()}
+          onCreateDraft={() => void createDraftFromItems(selectedIds)}
+          onToggleSave={(item) => void toggleSave(item)}
           onFeedback={(item, value) => void sendFeedback(item, value)}
           onMarkRead={(item) => void markRead(item)}
         />
-      </main> : activeView === 'topics' || activeView === 'actions' ? <EditorialWorkspace view={activeView} selectedId={briefId} revision={briefRevision} onSelect={setBriefId} onNavigate={navigate} onDirty={setEditorialDirty} /> : <SettingsPage view={activeView as SettingsView} onNavigate={navigate} onError={setError} topicSettings={topicSettingsProps} />}
+      </main> : activeView === 'saved'
+        ? <SavedView topics={topics} sources={sources} revision={briefRevision} onNavigate={navigate} onCreateDraft={(ids) => void createDraftFromItems(ids)} />
+        : activeView === 'posts'
+          ? <PostsView selectedId={briefId} revision={briefRevision} onSelect={setBriefId} onNavigate={navigate} onDirty={setEditorialDirty} />
+          : <SettingsPage view={activeView as SettingsView} onNavigate={navigate} onError={setError} topicSettings={topicSettingsProps} />}
       <AppModals
         editing={editing}
         editValue={editValue}
@@ -469,7 +520,7 @@ function App() {
           colorBorder: '#d8dee7',
           colorBgLayout: '#f7f8fa',
           borderRadius: 6,
-          fontFamily: 'Inter, "PingFang SC", "Microsoft YaHei", sans-serif',
+          fontFamily: '"Microsoft YaHei", "微软雅黑", sans-serif',
           fontSize: 13,
           controlHeight: 34
         },

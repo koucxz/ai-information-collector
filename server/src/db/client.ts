@@ -27,6 +27,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS information_changes (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, change_type TEXT NOT NULL, summary TEXT NOT NULL, created_at TEXT NOT NULL);
   CREATE INDEX IF NOT EXISTS information_change_item_idx ON information_changes(item_id, created_at);
   CREATE TABLE IF NOT EXISTS information_feedback (item_id TEXT PRIMARY KEY REFERENCES information_items(id) ON DELETE CASCADE, value TEXT NOT NULL CHECK(value IN ('helpful', 'irrelevant', 'duplicate')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS information_item_topics (item_id TEXT NOT NULL REFERENCES information_items(id) ON DELETE CASCADE, topic_id TEXT NOT NULL, score INTEGER NOT NULL DEFAULT 0, matched_json TEXT NOT NULL DEFAULT '[]', is_primary INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(item_id, topic_id));
+  CREATE INDEX IF NOT EXISTS information_item_topics_topic_idx ON information_item_topics(topic_id, item_id);
+  CREATE TABLE IF NOT EXISTS topic_tag_meta (id TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
   ${collectionRunsSchema}
   CREATE INDEX IF NOT EXISTS collection_runs_started_idx ON collection_runs(started_at DESC);
   CREATE TABLE IF NOT EXISTS source_health (source TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0, total_duration_ms INTEGER NOT NULL DEFAULT 0, last_success_at TEXT, last_failure_at TEXT, last_error TEXT, updated_at TEXT NOT NULL);

@@ -1,5 +1,6 @@
 import { Badge, Button, Tooltip } from 'antd';
-import { Bell, Compass, ListChecks, LogOut, NotebookPen, Radar, RefreshCw, Settings2 } from 'lucide-react';
+import { Bell, Bookmark, FileText, LogOut, Radar, RefreshCw, Rss, Settings2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ServiceStatus, WorkspaceView } from '../shared/types';
 
 type AppHeaderProps = {
@@ -14,10 +15,17 @@ type AppHeaderProps = {
   onLogout: () => void;
 };
 
+// 采用阅读器 / CMS 里最常见的名字，并在每项下面用一句话说明用途
 const VIEW_NAMES: Record<WorkspaceView, string> = {
-  inbox: '看情报', topics: '挑选题', actions: '发布前检查', manage: '设置',
+  inbox: '信息流', saved: '收藏夹', posts: '文章', manage: '设置',
   events: '事件库', runs: '采集任务', sources: '信息来源', notifications: '通知渠道', settings: '数据与设置'
 };
+const NAV: Array<{ view: WorkspaceView; label: string; hint: string; icon: LucideIcon }> = [
+  { view: 'inbox', label: '信息流', hint: '采集到的最新信息', icon: Rss },
+  { view: 'saved', label: '收藏夹', hint: '留着准备写的线索', icon: Bookmark },
+  { view: 'posts', label: '文章', hint: '写草稿、导出成稿', icon: FileText },
+  { view: 'manage', label: '设置', hint: '主题与数据来源', icon: Settings2 }
+];
 const MANAGEMENT_VIEWS: WorkspaceView[] = ['manage', 'events', 'runs', 'sources', 'notifications', 'settings'];
 
 export function AppHeader(props: AppHeaderProps) {
@@ -34,12 +42,19 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
       <span className="workspace-private">个人工作区 · PRIVATE</span>
       <nav className="workspace-nav" aria-label="主导航">
-        <button aria-current={props.activeView === 'inbox' ? 'page' : undefined} onClick={() => props.onNavigate('inbox')}><Compass size={17} />看情报</button>
-        <button aria-current={props.activeView === 'topics' ? 'page' : undefined} onClick={() => props.onNavigate('topics')}><NotebookPen size={17} />挑选题</button>
-        <button aria-current={props.activeView === 'actions' ? 'page' : undefined} onClick={() => props.onNavigate('actions')}><ListChecks size={17} />发布前检查</button>
-        <button aria-current={inSettings ? 'page' : undefined} onClick={() => props.onNavigate('manage')}><Settings2 size={17} />设置</button>
+        {NAV.map(({ view, label, hint, icon: Icon }) => <button
+          key={view}
+          aria-current={(view === 'manage' ? inSettings : props.activeView === view) ? 'page' : undefined}
+          onClick={() => props.onNavigate(view)}
+        >
+          <Icon size={17} />
+          <span><strong>{label}</strong><small>{hint}</small></span>
+        </button>)}
       </nav>
-      <Button className="workspace-logout" icon={<LogOut size={15} />} onClick={props.onLogout}>退出登录</Button>
+      <div className="workspace-sidebar-foot">
+        <span>按主题自动打标</span>
+        <span>只在你点击时采集</span>
+      </div>
     </aside><header className="topbar workspace-topbar">
       <span className="workspace-breadcrumb">{breadcrumb}</span>
       <div className="top-actions">
@@ -61,6 +76,7 @@ export function AppHeader(props: AppHeaderProps) {
             立即采集
           </Button>
         </Tooltip>
+        <Button className="topbar-logout" aria-label="退出登录" icon={<LogOut size={15} />} onClick={props.onLogout}>退出登录</Button>
       </div>
     </header></>
   );

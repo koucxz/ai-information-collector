@@ -1,4 +1,5 @@
 import { db } from '../../db/client.js';
+import { ensureTopicTags } from '../collection/topic-tagger.js';
 
 const tables = ['topics', 'keywords', 'information_items', 'information_snapshots', 'information_changes', 'information_feedback', 'collection_runs', 'source_health', 'analysis_calls', 'notification_channels', 'notification_deliveries', 'editorial_briefs'] as const;
 type Backup = { format: 'signaldock-backup'; version: 1; exportedAt: string; tables: Record<string, unknown[]> };
@@ -63,9 +64,11 @@ export const restoreBackup = (input: unknown) => {
   try {
     for (const table of [...tables].reverse()) db.exec(`DELETE FROM ${table}`);
     for (const table of tables) if (Array.isArray(backup.tables[table]) && available.has(table)) insertRows(table, backup.tables[table] ?? []);
-    db.exec('DELETE FROM information_search');
+    db.exec('DELETE FROM information_search; DELETE FROM information_item_topics; DELETE FROM topic_tag_meta;');
     db.exec(`INSERT INTO information_search (item_id, title, summary, content, analysis_summary, keyword, source_name) SELECT id, title, summary, content, analysis_summary, keyword, source_name FROM information_items`);
     db.exec('COMMIT');
   } catch (error) { db.exec('ROLLBACK'); throw error; }
+  // 主题打标是派生数据，恢复备份后按恢复出来的主题配置重算一次
+  ensureTopicTags(true);
   return { restored: true, tables: Object.fromEntries(tables.map((table) => [table, Array.isArray(backup.tables?.[table]) ? backup.tables[table]?.length ?? 0 : 0])) };
 };

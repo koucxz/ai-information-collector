@@ -14,8 +14,11 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { requireAuth } from './auth.js';
 import { briefRouter } from './modules/briefs/brief.routes.js';
 import { telemetryRouter } from './modules/telemetry/telemetry.routes.js';
+import { ensureTopicTags } from './modules/collection/topic-tagger.js';
 
 export const app = express();
+// 首次启动或主题配置变化后，把历史信息按最新规则重新打标
+ensureTopicTags();
 
 app.disable('x-powered-by');
 app.set('trust proxy', env.TRUST_PROXY ? 1 : 0);

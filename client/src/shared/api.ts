@@ -22,8 +22,8 @@ const PATH_FEATURES: Array<[RegExp, string]> = [
   [/^\/api\/information\/overview/, '信息概览'],
   [/^\/api\/information/, '信息流'],
   [/^\/api\/topics/, '关注主题'],
-  [/^\/api\/briefs\/candidates/, '选题推荐'],
-  [/^\/api\/briefs/, '选题库'],
+  [/^\/api\/briefs\/candidates/, '候选线索'],
+  [/^\/api\/briefs/, '文章'],
   [/^\/api\/collect\/run/, '立即采集'],
   [/^\/api\/collect\/sources/, '采集来源'],
   [/^\/api\/collect\/runs/, '采集记录'],
@@ -38,12 +38,15 @@ const PATH_FEATURES: Array<[RegExp, string]> = [
 function featureOf(url: string, method: string, explicit?: string): string {
   if (explicit) return explicit;
   const path = url.split('?')[0];
-  if (/\/generate$/.test(path)) return '提炼选题';
+  if (/\/generate$/.test(path)) return '新建草稿';
+  if (/\/save$/.test(path)) return '收藏管理';
+  if (/\/retag$/.test(path)) return '主题打标';
   if (/\/read$/.test(path)) return '标记已读';
   if (/\/feedback$/.test(path)) return '信息反馈';
   if (/\/event$/.test(path)) return '事件详情';
   if (/\/test$/.test(path)) return '测试通知';
-  if (method !== 'GET' && /^\/api\/briefs\//.test(path)) return '选题编辑';
+  if (method === 'POST' && path === '/api/briefs') return '新建草稿';
+  if (method !== 'GET' && /^\/api\/briefs\//.test(path)) return '文章编辑';
   if (method !== 'GET' && /^\/api\/topics\//.test(path)) return '主题编辑';
   for (const [pattern, name] of PATH_FEATURES) if (pattern.test(path)) return name;
   return '服务请求';

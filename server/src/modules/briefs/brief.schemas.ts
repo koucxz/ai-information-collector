@@ -20,12 +20,18 @@ export const generationSchema = z.object({
   itemIds: z.array(z.string().min(1).max(100)).min(2).max(20).refine(ids => new Set(ids).size === ids.length, '不能重复选择来源'),
   candidateId: z.string().min(1).max(100).optional()
 }).strict();
+/** 收藏夹里勾选素材后直接新建一篇草稿：这是主流 CMS / 阅读器的做法，不需要评分或推荐理由。 */
+export const createSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  itemIds: z.array(z.string().min(1).max(100)).max(20).default([])
+}).strict();
 export const updateSchema = z.object({
   version: z.number().int().positive(), title: draftSchema.shape.title.optional(), reader: draftSchema.shape.reader.optional(),
   angle: draftSchema.shape.angle.optional(), outline: draftSchema.shape.outline.optional(),
   tasks: z.array(taskSchema).min(1).max(30).refine(tasks => new Set(tasks.map(t => t.id)).size === tasks.length, '行动编号重复').optional(),
   content: z.string().max(50_000).optional(),
   status: briefStatusSchema.optional(),
+  tags: z.array(z.string().trim().min(1).max(80)).max(10).optional(),
   archived: z.boolean().optional()
 }).strict().refine(value => Object.keys(value).length > 1, '更新内容不能为空');
 export type SourceSnapshot = { id: string; title: string; sourceName: string; url: string; summary: string };
@@ -39,5 +45,6 @@ export type BriefDocument = Omit<z.infer<typeof draftSchema>, 'tasks'> & {
   status?: BriefStatus;
   publishedAt?: string;
   signal?: BriefSignal;
+  tags?: string[];
 };
 export type Brief = BriefDocument & { id: string; version: number; createdAt: string; updatedAt: string };

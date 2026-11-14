@@ -1,5 +1,5 @@
 import { Button, Checkbox, Empty, Input, Pagination, Segmented, Skeleton, Tag, Tooltip } from 'antd';
-import { Check, Copy, ExternalLink, EyeOff, Layers3, Search, Sparkles, ThumbsUp } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Check, Copy, ExternalLink, EyeOff, FilePlus2, Layers3, Search, ThumbsUp } from 'lucide-react';
 import { originalUrl } from '../../shared/links';
 import { formatRelativeTime } from '../../shared/format';
 import type {
@@ -35,11 +35,13 @@ type InboxViewProps = {
   onOpenSettings: () => void;
   onOpenEvent: (item: FeedItem) => void;
   selectedIds: string[];
-  generating: boolean;
+  busy: boolean;
   onToggleSelect: (id: string) => void;
   onSelectPage: () => void;
   onClearSelection: () => void;
-  onGenerate: () => void;
+  onSaveSelected: () => void;
+  onCreateDraft: () => void;
+  onToggleSave: (item: FeedItem) => void;
   onFeedback: (item: FeedItem, value: FeedbackValue) => void;
   onMarkRead: (item: FeedItem) => void;
 };
@@ -49,8 +51,8 @@ export function InboxView(props: InboxViewProps) {
     <section className="feed-column">
       <div className="page-heading">
         <div>
-          <p>共收集 {props.overview.all} 条信息，{props.overview.relevant} 条值得关注</p>
-          <h1>发现信息</h1>
+          <p>当前 {props.overview.all} 条信息 · {props.overview.unread} 条未读 · 按主题自动打标</p>
+          <h1>信息流</h1>
         </div>
         <Segmented
           value={props.feedSort}
@@ -80,6 +82,7 @@ export function InboxView(props: InboxViewProps) {
           />
           <select aria-label="按主题筛选" value={props.topicFilter} onChange={(event) => props.onTopicChange(event.target.value)}>
             <option value="">全部主题</option>
+            {props.topicFilter === '__none__' && <option value="__none__">未分类</option>}
             {props.topics.map((topic) => <option value={topic.id} key={topic.id}>{topic.name}</option>)}
           </select>
           <select aria-label="按来源筛选" value={props.sourceFilter} onChange={(event) => props.onSourceChange(event.target.value)}>
@@ -89,7 +92,15 @@ export function InboxView(props: InboxViewProps) {
         </div>
       </div>
 
-      <div className="batch-toolbar"><div><strong>综合提炼选题</strong><p>选择 2–20 条线索，一起提炼选题和行动建议。已选 {props.selectedIds.length} 条</p></div><div><Button onClick={props.onSelectPage} disabled={props.generating || !props.items.length}>选择当前页</Button><Button onClick={props.onClearSelection} disabled={props.generating || !props.selectedIds.length}>清空</Button><Button type="primary" icon={<Sparkles size={14} />} loading={props.generating} disabled={props.selectedIds.length < 2} onClick={props.onGenerate}>提炼选题</Button></div></div>
+      <div className="batch-toolbar">
+        <div><strong>整理线索</strong><p>勾选信息后加入收藏夹，或直接新建一篇文章草稿。已选 {props.selectedIds.length} 条</p></div>
+        <div>
+          <Button onClick={props.onSelectPage} disabled={props.busy || !props.items.length}>选择当前页</Button>
+          <Button onClick={props.onClearSelection} disabled={props.busy || !props.selectedIds.length}>清空</Button>
+          <Button icon={<Bookmark size={14} />} loading={props.busy} disabled={!props.selectedIds.length} onClick={props.onSaveSelected}>加入收藏夹</Button>
+          <Button type="primary" icon={<FilePlus2 size={14} />} loading={props.busy} disabled={!props.selectedIds.length} onClick={props.onCreateDraft}>新建草稿</Button>
+        </div>
+      </div>
 
       <div className="feed-list">
         {props.loading && Array.from({ length: 5 }, (_, index) => <div className="feed-skeleton" key={index}><Skeleton active title={{ width: '42%' }} paragraph={{ rows: 2, width: ['68%', '48%'] }} /></div>)}
@@ -112,7 +123,7 @@ export function InboxView(props: InboxViewProps) {
             {!item.isRead && <span className="unread-dot" />}
             <div className="feed-body">
               <div className="feed-meta">
-                <Checkbox aria-label={'选择线索：' + item.title} checked={props.selectedIds.includes(item.id)} disabled={props.generating} onChange={() => props.onToggleSelect(item.id)} />
+                <Checkbox aria-label={'选择线索：' + item.title} checked={props.selectedIds.includes(item.id)} disabled={props.busy} onChange={() => props.onToggleSelect(item.id)} />
                 <span className={'source-label source-' + item.source}>{item.sourceName}</span>
                 <span>{formatRelativeTime(item.collectedAt)}</span>
                 <button onClick={() => props.onOpenEvent(item)}><Layers3 size={12} />事件来源</button>
@@ -121,10 +132,19 @@ export function InboxView(props: InboxViewProps) {
               <p>{item.analysisSummary || item.summary || '暂无摘要'}</p>
               <div className="feed-footer">
                 <div className="feed-tags">
-                  {item.keyword && <Tag>{item.keyword}</Tag>}
-                  {item.aiStatus && <Tag>{item.aiStatus === 'pending' ? '待整理' : item.aiStatus === 'fallback' ? '本地整理' : 'AI 摘要'}</Tag>}
+                  {item.topics.length
+                    ? item.topics.map(tag => <button
+                        key={tag.id}
+                        className={'feed-topic-tag' + (tag.primary ? ' is-primary' : '')}
+                        title={'按「' + tag.name + '」筛选'}
+                        onClick={() => props.onTopicChange(tag.id)}
+                      >{tag.name}</button>)
+                    : <Tag>未分类</Tag>}
                 </div>
                 <div className="feed-actions">
+                  <Tooltip title={item.isSaved ? '从收藏夹移除' : '加入收藏夹'}>
+                    <Button aria-label={item.isSaved ? '取消收藏' : '加入收藏夹'} type="text" size="small" className={item.isSaved ? 'selected' : ''} icon={item.isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />} onClick={() => props.onToggleSave(item)} />
+                  </Tooltip>
                   {originalUrl(item.url) ? <a className="original-link" href={originalUrl(item.url)} target="_blank" rel="noopener noreferrer">查看原文 <ExternalLink size={12} /></a> : <span>原文链接缺失</span>}
                   <Tooltip title="有用"><Button aria-label="标记有用" type="text" size="small" className={item.feedback === 'helpful' ? 'selected' : ''} icon={<ThumbsUp size={13} />} onClick={() => props.onFeedback(item, 'helpful')} /></Tooltip>
                   <Tooltip title="无关"><Button aria-label="标记无关" type="text" size="small" className={item.feedback === 'irrelevant' ? 'selected' : ''} icon={<EyeOff size={13} />} onClick={() => props.onFeedback(item, 'irrelevant')} /></Tooltip>

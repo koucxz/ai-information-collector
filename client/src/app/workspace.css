@@ -4,10 +4,16 @@
 .workspace-sidebar .brand { min-width: 0; }
 .workspace-sidebar .brand strong { font-size: 17px; }
 .workspace-private { color: #8993a3; font-size: 11px; }
-.workspace-nav { display: grid; gap: 8px; }
-.workspace-nav button { display: flex; align-items: center; gap: 11px; border: 0; padding: 13px 12px; text-align: left; background: transparent; color: #667085; border-radius: 7px; }
-.workspace-nav button[aria-current=page] { background: #e7f2eb; color: #16734a; font-weight: 500; }
-.workspace-logout { margin-top: auto; }
+.workspace-nav { display: grid; gap: 4px; }
+.workspace-nav button { display: flex; align-items: flex-start; gap: 11px; border: 0; padding: 10px 12px; text-align: left; background: transparent; color: #667085; border-radius: 7px; }
+.workspace-nav button > svg { flex: 0 0 auto; margin-top: 2px; }
+.workspace-nav button > span { display: grid; gap: 3px; min-width: 0; }
+.workspace-nav strong { font-size: 13px; font-weight: 600; line-height: 1.3; }
+.workspace-nav small { color: #98a2b3; font-size: 10px; line-height: 1.35; white-space: nowrap; }
+.workspace-nav button[aria-current=page] { background: #e7f2eb; color: #16734a; }
+.workspace-nav button[aria-current=page] small { color: #5a8b70; }
+.workspace-sidebar-foot { margin-top: auto; display: grid; gap: 4px; color: #a0a9b6; font-size: 10px; line-height: 1.6; }
+.topbar-logout { color: #667085; }
 .workspace-topbar { grid-column: 2; padding: 17px 30px; gap: 18px; flex-wrap: wrap; }
 .workspace-breadcrumb { color: #667085; font-size: 12px; }
 .app-frame .focus-layout { grid-template-columns: minmax(0, 1fr); }
@@ -35,8 +41,9 @@
   .workspace-sidebar .brand strong { display: inline; }
   .workspace-private { display: none; }
   .workspace-nav { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
-  .workspace-nav button { padding: 12px 4px; justify-content: center; gap: 6px; font-size: 12px; }
-  .workspace-logout { grid-column: 2; grid-row: 3; align-self: end; }
+  .workspace-nav button { padding: 10px 4px; justify-content: center; gap: 6px; font-size: 12px; }
+  .workspace-nav small, .workspace-sidebar-foot { display: none; }
+  .topbar-logout { padding-inline: 8px; }
   .workspace-topbar { padding: 14px 16px; }
   .workspace-breadcrumb { flex: 1; }
   .workspace-topbar .top-actions { margin: 0; }

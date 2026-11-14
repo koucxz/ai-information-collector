@@ -1,0 +1,116 @@
+/* 信息流 / 收藏夹 / 文章：按开源阅读器与 CMS 的常见布局重做 */
+:root { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; }
+
+.workspace-view { grid-column: 2; min-width: 0; padding: 28px 32px 64px; background: #f7f8fa; }
+.posts-loading { min-height: 620px; }
+.view-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 22px; }
+.view-heading p { margin: 0; color: #667085; font-size: 12px; }
+.view-heading h1 { margin: 7px 0 9px; color: #182230; font-size: 25px; font-weight: 650; line-height: 1.35; }
+.view-heading > div:first-child > span { display: block; max-width: 720px; color: #667085; font-size: 12px; line-height: 1.8; }
+.view-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 信息流：主题标签与批量操作 */
+.batch-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; margin: 22px 0 8px; padding: 17px; border: 1px solid #dcebe1; border-radius: 8px; background: #eff6f1; }
+.batch-toolbar strong { font-size: 13px; }
+.batch-toolbar p { color: #667085; font-size: 12px; line-height: 1.8; margin: 5px 0 0; }
+.batch-toolbar > div:last-child { display: flex; flex-wrap: wrap; gap: 7px; }
+.feed-actions { opacity: 1; flex-wrap: wrap; }
+.feed-footer { flex-wrap: wrap; }
+.feed-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.feed-tags .ant-tag { font-size: 11px; }
+.feed-topic-tag { border: 1px solid #cfe3d6; border-radius: 11px; padding: 1px 9px; color: #3b6e52; background: #f0f7f2; font-size: 11px; line-height: 19px; }
+.feed-topic-tag:hover { border-color: #16734a; color: #fff; background: #16734a; }
+.feed-topic-tag.is-primary { border-color: #9fc6ad; background: #e3f2e8; color: #145b3b; font-weight: 600; }
+
+/* 收藏夹 */
+.saved-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px 16px; border: 1px solid #e4e8ed; border-radius: 9px 9px 0 0; background: #fff; }
+.saved-toolbar .ant-input-affix-wrapper { flex: 1 1 220px; max-width: 360px; }
+.saved-toolbar select { height: 32px; padding: 0 8px; border: 1px solid #d8dee7; border-radius: 6px; background: #fff; color: #182230; font-size: 12px; }
+.saved-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 11px 16px; border: 1px solid #e4e8ed; border-top: 0; background: #fbfcfd; color: #667085; font-size: 12px; }
+.saved-summary strong { color: #16734a; }
+.saved-summary > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.saved-list { display: grid; gap: 10px; margin-top: 14px; }
+.saved-skeleton, .saved-row { border: 1px solid #e4e8ed; border-radius: 9px; background: #fff; }
+.saved-skeleton { padding: 18px; }
+.saved-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: start; gap: 14px; padding: 16px 18px; }
+.saved-row:hover { border-color: #cfe3d6; }
+.saved-row-main { min-width: 0; }
+.saved-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; color: #98a2b3; font-size: 11px; }
+.saved-row-meta .ant-tag { margin: 0; font-size: 10px; }
+.saved-row h2 { margin: 0 0 7px; font-size: 14px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.saved-row h2 svg { vertical-align: -1px; }
+.saved-row a { color: #182230; }
+.saved-row a:hover { color: #16734a; }
+.saved-row p { margin: 0; color: #667085; font-size: 12px; line-height: 1.75; }
+
+/* 文章：列表 + 编辑器 + 发布侧栏 */
+.posts-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr) 272px; align-items: start; gap: 16px; }
+.posts-library, .post-editor, .publish-panel { min-width: 0; border: 1px solid #e4e8ed; border-radius: 9px; background: #fff; }
+.posts-library { display: grid; gap: 12px; padding: 14px; }
+.posts-library-list { display: grid; gap: 7px; max-height: 660px; overflow-y: auto; }
+.post-card { display: grid; gap: 7px; width: 100%; padding: 11px 12px; border: 1px solid #e9edf1; border-radius: 7px; background: #fff; text-align: left; }
+.post-card:hover { border-color: #9fc6ad; }
+.post-card.is-current { border-color: #16734a; background: #f2f8f4; }
+.post-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #98a2b3; font-size: 10px; }
+.post-card-top .ant-tag { margin: 0; font-size: 10px; }
+.post-card strong { color: #182230; font-size: 13px; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
+.post-card-meta { display: flex; gap: 12px; color: #8a94a4; font-size: 10px; }
+.posts-library-empty { margin: 12px 0; color: #98a2b3; font-size: 12px; text-align: center; }
+
+.post-editor { display: grid; gap: 14px; padding: 18px 22px 24px; }
+.post-editor > .ant-empty { padding: 80px 0; }
+.post-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.post-editor-head > div:last-child { display: flex; flex-wrap: wrap; gap: 7px; }
+.post-editor-head .ant-tag { margin: 0; }
+.post-save-state { margin-left: 9px; color: #98a2b3; font-size: 11px; }
+.post-title { border: 0; border-bottom: 1px solid #e9edf1; border-radius: 0; padding: 6px 0 12px; font-size: 22px; font-weight: 650; }
+.post-title:focus, .post-title:hover { border-bottom-color: #16734a; box-shadow: none; }
+.post-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 26px; color: #8a94a4; font-size: 11px; }
+.post-tags > span { margin-right: 3px; }
+.post-tags .ant-tag { margin: 0; }
+.post-tag-input { width: 150px; }
+.post-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #edf0f3; padding-top: 12px; color: #98a2b3; font-size: 11px; }
+.post-content { border: 1px solid #e9edf1; border-radius: 7px; padding: 14px 16px; font-size: 13px; line-height: 1.95; }
+.post-content textarea { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; }
+.post-sources { border-top: 1px solid #edf0f3; padding-top: 14px; }
+.post-sources h3 { margin: 0 0 10px; font-size: 13px; font-weight: 650; }
+.post-sources ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.post-sources li { color: #182230; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.post-sources li > span:first-child { margin-right: 8px; color: #98a2b3; font-size: 11px; }
+.post-sources a { color: #16734a; }
+.post-sources p { color: #98a2b3; font-size: 12px; }
+
+.publish-panel { padding: 17px 16px 20px; }
+.publish-panel h2 { margin: 0; font-size: 15px; font-weight: 650; }
+.publish-status { margin: 6px 0 18px; color: #667085; font-size: 11px; }
+.publish-checks { border-top: 1px solid #edf0f3; border-bottom: 1px solid #edf0f3; padding: 15px 0; }
+.publish-checks h3 { margin: 0; font-size: 12px; font-weight: 650; }
+.publish-checks > small { display: block; margin: 5px 0 12px; color: #98a2b3; font-size: 10px; line-height: 1.6; }
+.publish-checks ul { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.publish-checks li { color: #667085; font-size: 11px; line-height: 1.6; }
+.publish-checks li.is-ok { color: #16734a; }
+.publish-checks .check-manual li { padding-left: 1px; }
+.publish-checks .ant-checkbox-wrapper { color: #667085; font-size: 11px; line-height: 1.6; }
+.publish-checks .is-done .ant-checkbox-wrapper { color: #98a2b3; text-decoration: line-through; }
+.check-add { margin-top: 4px; }
+.publish-actions { display: grid; gap: 8px; margin-top: 16px; }
+.publish-note { margin: 14px 0 0; color: #98a2b3; font-size: 10px; line-height: 1.7; }
+
+@media(max-width: 1240px) {
+  .posts-layout { grid-template-columns: 210px minmax(0, 1fr); }
+  .publish-panel { grid-column: 1 / -1; }
+  .publish-checks ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width: 900px) {
+  .workspace-view { padding: 22px 18px 48px; }
+  .posts-layout { grid-template-columns: minmax(0, 1fr); }
+  .posts-library-list { max-height: 240px; }
+  .publish-panel { grid-column: auto; }
+}
+@media(max-width: 760px) {
+  .view-heading h1 { font-size: 22px; }
+  .saved-row { grid-template-columns: 22px minmax(0, 1fr); }
+  .saved-row > .ant-btn { grid-column: 2; justify-self: start; }
+  .publish-checks ul { grid-template-columns: minmax(0, 1fr); }
+  .post-editor { padding: 14px; }
+}

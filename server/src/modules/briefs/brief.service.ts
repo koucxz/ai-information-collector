@@ -58,7 +58,7 @@ async function generate(key: string, sources: SourceSnapshot[], label: string, s
       documents = validateModelDrafts(JSON.parse(content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()), sources);
       analysisCallStore.record({ provider: 'brief-ai', status: 'success', attempts: 1, durationMs: Date.now() - startedAt });
     } catch {
-      analysisCallStore.record({ provider: 'brief-fallback', status: 'fallback', attempts: 1, durationMs: Date.now() - startedAt, error: 'AI 未返回有效的综合选题，已使用本地模板' });
+      analysisCallStore.record({ provider: 'brief-fallback', status: 'fallback', attempts: 1, durationMs: Date.now() - startedAt, error: 'AI 未返回有效结果，已使用内置模板' });
     }
   }
   // 无论 AI 是否可用，选题都带上可追溯的推荐理由，并进入「待写」状态等待起稿。

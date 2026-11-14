@@ -6,6 +6,7 @@ export type FeedSort = 'latest' | 'importance' | 'personalized';
 export type Keyword = { id: string; value: string; enabled: boolean };
 export type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; sourceIds: string[]; frequencyMinutes: number; notificationLevel: 'all' | 'important' | 'none'; description: string; enabled: boolean; keywords: Keyword[] };
 export type SourceOption = { id: string; name: string };
+export type ItemTopic = { id: string; name: string; score: number; primary: boolean };
 export type FeedItem = {
   id: string;
   sourceName: string;
@@ -18,6 +19,8 @@ export type FeedItem = {
   importanceScore: number;
   relevanceScore: number;
   isRead: boolean;
+  isSaved: boolean;
+  topics: ItemTopic[];
   aiStatus: string;
   analysisSummary: string;
   analysisReason: string;
@@ -47,8 +50,8 @@ export type CollectionEvent = {
 export type EditingValue =
   | { kind: 'topic'; topic: Topic }
   | { kind: 'keyword'; topic: Topic; keyword: Keyword };
-export type FeedOverview = { all: number; unread: number; relevant: number; globalAll: number; globalUnread: number; topicCounts: Record<string, number> };
-export type WorkspaceView = 'inbox' | 'topics' | 'actions' | 'manage' | 'events' | 'runs' | 'sources' | 'notifications' | 'settings';
+export type FeedOverview = { all: number; unread: number; relevant: number; globalAll: number; globalUnread: number; topicCounts: Record<string, number>; unclassified: number };
+export type WorkspaceView = 'inbox' | 'saved' | 'posts' | 'manage' | 'events' | 'runs' | 'sources' | 'notifications' | 'settings';
 export type BriefSection = { title: string; detail: string; sourceIds: string[] };
 export type BriefTask = { id: string; title: string; done: boolean; date: string };
 export type BriefStatus = 'idea' | 'draft' | 'review' | 'published';
@@ -73,4 +76,5 @@ export type EditorialBrief = {
   sources: { id: string; title: string; sourceName: string; summary: string; url: string }[];
   provider: 'ai' | 'fallback'; archived: boolean;
   content?: string; status?: BriefStatus; publishedAt?: string; signal?: BriefSignal;
+  tags?: string[];
 };

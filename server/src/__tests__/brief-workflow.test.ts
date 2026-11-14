@@ -35,7 +35,7 @@ describe('batch editorial workflow', () => {
     expect((await request(app).patch('/api/briefs/' + brief.id).send({ version: 1, title: '过期覆盖' })).status).toBe(409);
     const reused = await request(app).post('/api/briefs/generate').send({ itemIds: [...ids].reverse() });
     expect(reused.body.reused).toBe(true); expect(reused.body.data[0].title).toBe('我的综合选题');
-    expect((await request(app).patch('/api/briefs/' + brief.id).send({ version: brief.version, archived: true })).status).toBe(400);
+    // 发布前检查改为提示式清单后，归档不再被未勾完的检查项阻断
     const completed = await request(app).patch('/api/briefs/' + brief.id).send({ version: brief.version, tasks: brief.tasks.map(t => ({ ...t, done: true, date: '2026-11-12' })), archived: true });
     expect(completed.status).toBe(200); brief = completed.body.data;
     expect((await request(app).patch('/api/briefs/' + brief.id).send({ version: brief.version, title: '归档不可编辑' })).status).toBe(409);
