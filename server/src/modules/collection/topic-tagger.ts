@@ -84,23 +84,25 @@ export const tagText = (
   for (const rule of rules) {
     if (rule.excludes.some((word) => containsTerm(wholeText, wholeDense, word))) continue;
     let score = 0;
+    let contentHit = false;
     const matched = new Set<string>();
     for (const term of rule.terms) {
       let best = 0;
       for (const field of fields) {
         if (containsTerm(field.text, field.dense, term)) best = Math.max(best, field.weight);
       }
-      if (best) { score += best; matched.add(term); }
+      if (best) { score += best; contentHit = true; matched.add(term); }
     }
     if (containsTerm(fields[0].text, fields[0].dense, rule.name)) score += 2;
     const queryHit = keyword ? rule.queryWords.includes(keyword) : false;
     if (queryHit) {
-      score += 5;
+      score += 3;
       matched.add(rule.name);
     }
-    if (score >= TAG_THRESHOLD || queryHit) {
-      hits.push({ id: rule.id, name: rule.name, score, matched: [...matched].slice(0, 6) });
-    }
+    // 采集查询词只是加分项：如果标题、摘要、正文里一次主题词都没出现，
+    // 说明这条是搜索结果里的噪声（例如 GitHub issue），不该被算进这个主题。
+    if (!contentHit || score < TAG_THRESHOLD) continue;
+    hits.push({ id: rule.id, name: rule.name, score, matched: [...matched].slice(0, 6) });
   }
   return hits.sort((left, right) => right.score - left.score).slice(0, MAX_TAGS);
 };
@@ -122,9 +124,11 @@ const saveSignature = (value: string) => {
  * 主题配置变化（改名 / 增删关键词 / 排除词）后自动全量重打标；
  * 配置没变时是常数级开销，可以放心在请求入口调用。
  */
+// 规则本身升级时也要让历史数据重新打标，不能只看主题配置是否变化
+const RULES_VERSION = 2;
 export const ensureTopicTags = (force = false): RetagSummary => {
   const rules = topicRules();
-  const signature = createHash('sha1').update(JSON.stringify(rules)).digest('hex');
+  const signature = createHash('sha1').update(`${RULES_VERSION}|${JSON.stringify(rules)}`).digest('hex');
   const current = metaSignature();
   if (!force && current === signature) return { changed: false, items: 0, tagged: 0, unclassified: 0 };
   const rows = db.prepare(`SELECT ${ITEM_COLUMNS} FROM information_items`).all() as unknown as ItemRow[];

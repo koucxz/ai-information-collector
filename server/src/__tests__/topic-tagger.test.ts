@@ -44,7 +44,12 @@ describe('主题打标', () => {
     const summaryHit = tagText({ title: '无关标题', summary: 'Cursor 更新说明', content: '', keyword: '' }, rules)[0];
     expect(titleHit.score).toBeGreaterThan(summaryHit.score);
     expect(tagText({ title: '无关标题', summary: '', content: '里面提到 Cursor', keyword: '' }, rules)).toEqual([]);
-    expect(tagText({ title: '完全无关的标题', summary: '', content: '', keyword: 'cursor' }, rules)[0].id).toBe('coding');
+    expect(tagText({ title: '无关标题', summary: '', content: '历史数据里提到 Cursor', keyword: 'cursor' }, rules)[0].id).toBe('coding');
+  });
+
+  it('采集词命中但内容与主题无关的噪声不会被误归类', () => {
+    const noise = { title: 'Banner de consentimento de cookies (Consent Mode v2)', summary: 'Mirrored from agent_issues id 1003510', content: 'D1 is authoritative for this issue state', keyword: 'Kimi' };
+    expect(tagText(noise, rules)).toEqual([]);
   });
 
   it('主题筛选、未分类筛选与主题计数都基于打标结果', async () => {
