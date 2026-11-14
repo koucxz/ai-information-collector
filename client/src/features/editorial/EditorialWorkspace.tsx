@@ -94,7 +94,7 @@ function CandidateCard(props: { candidate: TopicCandidate; starting: boolean; on
     </div>
     <ul className="candidate-titles">{c.sampleTitles.slice(0, 2).map(title => <li key={title}>{title}</li>)}</ul>
     <div className="candidate-foot">
-      <span><Tag color={c.angle === 'guide' ? 'blue' : 'purple'}>{c.angle === 'guide' ? '选型指南' : '工程解读'}</Tag>{c.clues} 条线索 · {c.sources} 个来源 · 取最近 {c.itemIds.length} 条开写</span>
+      <span><Tag color={c.angle === 'guide' ? 'blue' : 'purple'}>{c.angle === 'guide' ? '选型指南' : '工程解读'}</Tag>{c.clues} 条线索 · {c.sources} 个来源 · 跨来源抽 {c.itemIds.length} 条开写</span>
       <Button type="primary" size="small" loading={props.starting} disabled={c.used} onClick={() => props.onStart(c)}>
         {c.used ? '已开写' : '按这个选题开写'}
       </Button>
@@ -221,7 +221,7 @@ export function EditorialWorkspace(props: Props) {
     setStarting(candidate.id);
     try {
       const result = await request<{ data: EditorialBrief[]; reused: boolean }>('/api/briefs/generate', {
-        method: 'POST', feature: '提炼选题', body: JSON.stringify({ itemIds: candidate.itemIds })
+        method: 'POST', feature: '提炼选题', body: JSON.stringify({ itemIds: candidate.itemIds, candidateId: candidate.id })
       });
       const id = result.data[0]?.id;
       if (id) { setCurrentId(id); props.onSelect(id); setEditorTab('plan'); }
@@ -384,7 +384,7 @@ export function EditorialWorkspace(props: Props) {
                 <p className="signal-window">{draft.signal.window}</p>
                 <p className="signal-why">{draft.signal.why}</p>
                 <div className="signal-dims">{draft.signal.dimensions.map(d => <span key={d.key}>{d.label} <b>{d.note}</b></span>)}</div>
-                <small>由采集记录规则计算，不代表事实判断</small>
+                <small>推荐基于 {draft.signal.clues} 条线索，本方案引用 {draft.sources.length} 条作参考；评分由规则计算，不代表事实判断</small>
               </div>}
               <h2>为什么做这个选题</h2><p>{rationaleText(draft)}</p>
               <h2>参考原文（{draft.sources.length}）</h2>

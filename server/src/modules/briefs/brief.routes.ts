@@ -13,7 +13,7 @@ briefRouter.get('/candidates', (_request, response) => response.json(topicCandid
 briefRouter.post('/generate', generationLimiter, async (request, response) => {
   const input = generationSchema.safeParse(request.body);
   if (!input.success) return response.status(400).json({ error: '请选择2–20条不同线索' });
-  try { return response.json(await generateBriefs(input.data.itemIds)); }
+  try { return response.json(await generateBriefs(input.data.itemIds, input.data.candidateId)); }
   catch (error) {
     if (error instanceof BriefError) return response.status(error.status).json({ error: error.message });
     throw error;

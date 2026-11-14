@@ -68,6 +68,25 @@ describe('Beacon 风格选题推荐与成稿状态', () => {
     expect(published.body.data.content).toContain('初稿');
   });
 
+  it('按候选开写时保留全量推荐评分，并跨来源取样', async () => {
+    for (let index = 0; index < 15; index += 1) insert('juejin', 'Docker 部署', `Docker 部署实践 ${index}`, 1 + index);
+    for (let index = 0; index < 3; index += 1) insert('kr36', 'Docker 部署', `容器化部署观察 ${index}`, 30 + index);
+    const candidate = (await request(app).get('/api/briefs/candidates')).body.data
+      .find((item: { keyword: string }) => item.keyword === 'Docker 部署');
+    expect(candidate.clues).toBe(18);
+    expect(candidate.itemIds).toHaveLength(12);
+    const placeholders = candidate.itemIds.map(() => '?').join(',');
+    const sources = db.prepare(`SELECT DISTINCT source FROM information_items WHERE id IN (${placeholders})`).all(...candidate.itemIds);
+    expect(sources).toHaveLength(2);
+
+    const generated = await request(app).post('/api/briefs/generate').send({ itemIds: candidate.itemIds, candidateId: candidate.id });
+    expect(generated.status).toBe(200);
+    const brief = generated.body.data[0] as Brief;
+    expect(brief.signal?.clues).toBe(18);
+    expect(brief.signal?.score).toBe(candidate.score);
+    expect(brief.sources).toHaveLength(12);
+  });
+
   it('候选里已开写过的线索会被标出来', async () => {
     const first = insert('juejin', '前端框架', '框架 A 更新', 2);
     const second = insert('kr36', '前端框架', '框架 B 对比', 4);

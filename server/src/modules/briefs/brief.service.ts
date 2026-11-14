@@ -6,7 +6,7 @@ import { informationStore } from '../collection/information.store.js';
 import { draftSchema, type Brief, type BriefDocument, type SourceSnapshot } from './brief.schemas.js';
 import { briefStore } from './brief.store.js';
 import { withAiBudget } from '../analysis/ai-budget.js';
-import { buildSignal, type BriefSignal } from './candidates.js';
+import { buildSignal, findCandidateSignal, type BriefSignal } from './candidates.js';
 
 export class BriefError extends Error { constructor(public status: number, message: string) { super(message); } }
 const pending = new Map<string, Promise<{ data: Brief[]; reused: boolean }>>();
@@ -72,7 +72,7 @@ async function generate(key: string, sources: SourceSnapshot[], label: string, s
   return { data: briefStore.createMany(key, documents), reused: false };
 }
 
-export const generateBriefs = async (ids: string[]) => {
+export const generateBriefs = async (ids: string[], candidateId?: string) => {
   const items = ids.map(id => informationStore.findById(id));
   if (items.some(item => !item || item.isArchived)) throw new BriefError(400, '部分线索不存在或已归档，请重新选择');
   const valid = items.filter(item => !!item);
@@ -84,7 +84,7 @@ export const generateBriefs = async (ids: string[]) => {
   const sources = valid.map(item => ({ id: item.id, title: item.title.slice(0, 200), summary: (item.summary || item.content).slice(0, 1500), url: item.url, sourceName: item.sourceName }));
   const labels = [...new Set(valid.map(item => item.keyword).filter(Boolean))];
   const label = labels.slice(0, 3).join('、') || '本轮关注信息';
-  const signal = buildSignal(valid.map(item => ({
+  const signal = (candidateId && findCandidateSignal(candidateId)) || buildSignal(valid.map(item => ({
     id: item.id, keyword: item.keyword, source: item.source, sourceName: item.sourceName,
     title: item.title, collectedAt: item.collectedAt, importanceScore: item.importanceScore,
     relevanceScore: item.relevanceScore, eventKey: item.eventKey

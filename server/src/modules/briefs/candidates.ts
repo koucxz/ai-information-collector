@@ -38,6 +38,38 @@ export type SignalItem = {
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const ENGINEERING = /部署|运维|架构|源码|性能|容器|工程|数据库|监控|迁移|故障|api|sdk|docker|k8s|linux|nginx|redis/i;
+/** 采集源里混着 GitHub issue、报错日志等噪声标题，不能直接拿来做选题锚点。 */
+const isReadableTitle = (title: string) => {
+  const value = title.trim();
+  return value.length >= 8 && value.length <= 60
+    && !/^\[?#?\d+\]|CODE-|https?:\/\/|^[{[]/i.test(value)
+    && !/\.js\s*\||at\s+\w+\(|stack trace/i.test(value);
+};
+const pickAnchor = (items: Array<{ title: string }>, keyword: string) =>
+  items.find(item => isReadableTitle(item.title))?.title.trim().replace(/\s+/g, ' ').slice(0, 30)
+  ?? `${keyword} 相关动态`;
+/** 跨来源轮转取样，避免把最近 8 条（往往同一来源）全塞进一份方案。 */
+const sampleAcrossSources = <T extends { source: string }>(items: T[], limit: number): T[] => {
+  const grouped = new Map<string, T[]>();
+  for (const item of items) {
+    const group = grouped.get(item.source) ?? [];
+    group.push(item);
+    grouped.set(item.source, group);
+  }
+  const chosen: T[] = [];
+  const queues = [...grouped.values()];
+  for (let round = 0; chosen.length < limit; round += 1) {
+    let added = false;
+    for (const queue of queues) {
+      if (!queue[round]) continue;
+      chosen.push(queue[round]);
+      added = true;
+      if (chosen.length >= limit) break;
+    }
+    if (!added) break;
+  }
+  return chosen;
+};
 
 /** 六维信号：每条都能在信息流里查到出处，避免「AI 编一个推荐理由」。 */
 export const buildSignal = (items: SignalItem[], keyword = ''): BriefSignal => {
@@ -103,17 +135,18 @@ export const topicCandidates = () => {
     .filter(([, items]) => items.length >= 2)
     .map(([keyword, items]) => {
       const signal = buildSignal(items, keyword);
-      const chosen = items.slice(0, 8);
+      const chosen = sampleAcrossSources(items, 12);
       const angleLabel = signal.angle === 'guide' ? '选型指南' : '工程解读';
-      const anchor = items[0].title.replace(/\s+/g, ' ').slice(0, 30);
+      const anchor = pickAnchor(items, keyword);
+      const titles = [...new Set([...items.map(item => item.title).filter(isReadableTitle), ...items.map(item => item.title)])];
       return {
         ...signal,
         id: createHash('sha1').update(`${keyword}|${items[0].id}`).digest('hex').slice(0, 16),
         keyword,
         title: `${keyword} · ${angleLabel}：从「${anchor}」等 ${items.length} 条线索切入`.slice(0, 160),
-        headline: items[0].title,
+        headline: anchor,
         itemIds: chosen.map(item => item.id),
-        sampleTitles: items.slice(0, 3).map(item => item.title),
+        sampleTitles: titles.slice(0, 3),
         used: chosen.every(item => used.has(item.id))
       };
     })
@@ -125,5 +158,16 @@ export const topicCandidates = () => {
     windowDays: 30,
     method: 'rules' as const,
     note: '评分由线索量、跨来源、新鲜度、重要性、相关性、事件多样性六项规则计算，不使用大模型；推荐理由只复述采集记录，不代替事实核验。'
+  };
+};
+
+/** 开写时按候选 ID 重算完整信号（只信服务端数据），保证方案里的评分与推荐卡一致。 */
+export const findCandidateSignal = (id: string): BriefSignal | undefined => {
+  const hit = topicCandidates().data.find(candidate => candidate.id === id);
+  if (!hit) return undefined;
+  return {
+    score: hit.score, dimensions: hit.dimensions, why: hit.why, window: hit.window,
+    angle: hit.angle, clues: hit.clues, sources: hit.sources,
+    freshnessHours: hit.freshnessHours, method: hit.method
   };
 };

@@ -16,7 +16,10 @@ export const draftSchema = z.object({
   checks: z.array(z.string().min(1).max(500)).min(1).max(10),
   tasks: z.array(z.string().trim().min(1).max(300)).min(1).max(10)
 }).strict();
-export const generationSchema = z.object({ itemIds: z.array(z.string().min(1).max(100)).min(2).max(20).refine(ids => new Set(ids).size === ids.length, '不能重复选择来源') }).strict();
+export const generationSchema = z.object({
+  itemIds: z.array(z.string().min(1).max(100)).min(2).max(20).refine(ids => new Set(ids).size === ids.length, '不能重复选择来源'),
+  candidateId: z.string().min(1).max(100).optional()
+}).strict();
 export const updateSchema = z.object({
   version: z.number().int().positive(), title: draftSchema.shape.title.optional(), reader: draftSchema.shape.reader.optional(),
   angle: draftSchema.shape.angle.optional(), outline: draftSchema.shape.outline.optional(),
