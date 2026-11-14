@@ -4,7 +4,8 @@ import { app } from '../app.js';
 import { db } from '../db/client.js';
 import { informationStore } from '../modules/collection/information.store.js';
 import { normalizeResult } from '../modules/collection/normalize.js';
-import { tagText, type TopicRule } from '../modules/collection/topic-tagger.js';
+import { tagText, topicRules, type TopicRule } from '../modules/collection/topic-tagger.js';
+import { containsTerm } from '../modules/collection/text-match.js';
 
 const rules: TopicRule[] = [
   { id: 'coding', name: 'AI 编程', terms: ['AI', 'Cursor', 'AI 编程'], excludes: [], queryWords: ['cursor'] },
@@ -51,6 +52,21 @@ describe('主题打标', () => {
   it('采集词命中但内容与主题无关的噪声不会被误归类', () => {
     const noise = { title: 'Banner de consentimento de cookies (Consent Mode v2)', summary: 'Mirrored from agent_issues id 1003510', content: 'D1 is authoritative for this issue state', keyword: 'Kimi' };
     expect(tagText(noise, rules)).toEqual([]);
+  });
+
+  it('模型名带版本号或前缀也能命中', () => {
+    // Qwen3.8 / GPT-4 这类写法应该被当成 Qwen / GPT，但 Google 不能被 Go 命中
+    expect(containsTerm('qwen3.8 re-educated', '', 'Qwen')).toBe(true);
+    expect(containsTerm('gpt-4 turbo release', '', 'GPT')).toBe(true);
+    expect(containsTerm('google announces', '', 'Go')).toBe(false);
+    expect(containsTerm('maintain the database', '', 'AI')).toBe(false);
+  });
+
+  it('GPT 关键词也能命中 ChatGPT 写法', async () => {
+    const topic = await request(app).post('/api/topics').send({ name: '大模型上新' });
+    await request(app).post(`/api/topics/${topic.body.data.id}/keywords`).send({ value: 'GPT' });
+    const hits = tagText({ title: 'Introducing ChatGPT Wallet', summary: '', content: '', keyword: 'GPT' }, topicRules());
+    expect(hits.map((hit) => hit.name)).toContain('大模型上新');
   });
 
   it('主题筛选、未分类筛选与主题计数都基于打标结果', async () => {

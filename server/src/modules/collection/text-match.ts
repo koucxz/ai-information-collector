@@ -17,12 +17,12 @@ export const compactForMatch = (value: string) => cleanForMatch(value).replace(/
 const hasHan = (value: string) => /[\u3400-\u9fff]/u.test(value);
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** 中文按连续词匹配，英文按词边界匹配（AI 不会命中 maintain，Go 不会命中 Google）。 */
+/** 中文按连续词匹配，英文按词边界匹配（AI 不会命中 maintain，Go 不会命中 Google）；允许紧跟版本号，Qwen3 / GPT-4 也算命中。 */
 export const containsTerm = (text: string, dense: string, term: string) => {
   if (!term) return false;
   if (hasHan(term)) return dense.includes(compactForMatch(term));
   const pattern = term.split(/\s+/).map(escapeRegExp).join('[\\s\\-_/]*');
-  return new RegExp(`(?<![a-z0-9])${pattern}(?![a-z0-9])`, 'i').test(text);
+  return new RegExp(`(?<![a-z0-9])${pattern}(?![a-z])`, 'i').test(text);
 };
 
 export const matchesAnyTerm = (text: string, terms: string[]) => {

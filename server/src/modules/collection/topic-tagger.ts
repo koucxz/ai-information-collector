@@ -32,14 +32,18 @@ const clean = cleanForMatch;
 const compact = compactForMatch;
 const unique = (values: string[]) => [...new Set(values.map(clean).filter(Boolean))];
 
+/** 模型名的常见写法：GPT 系列在正文里几乎都写成 ChatGPT，词边界匹配不到。 */
+const termAliases = (term: string) => clean(term) === 'gpt' ? ['chatgpt'] : [];
+
 export const topicRules = (): TopicRule[] => topicStore.list().map((topic) => ({
   id: topic.id,
   name: topic.name,
   // 停用的关键词只用于兼容历史查询词，不再拿来给新内容打标
   terms: unique([
-    ...topic.keywords.filter((keyword) => keyword.enabled).map((keyword) => keyword.value),
-    ...topic.aliases,
-    topic.name
+    ...topic.keywords.filter((keyword) => keyword.enabled).flatMap((keyword) => [keyword.value, ...termAliases(keyword.value)]),
+    ...topic.aliases.flatMap((alias) => [alias, ...termAliases(alias)]),
+    topic.name,
+    ...termAliases(topic.name)
   ]),
   excludes: unique(topic.excludeWords),
   queryWords: unique([
@@ -116,7 +120,7 @@ const saveSignature = (value: string) => {
  * 配置没变时是常数级开销，可以放心在请求入口调用。
  */
 // 规则本身升级时也要让历史数据重新打标，不能只看主题配置是否变化
-const RULES_VERSION = 3;
+const RULES_VERSION = 4;
 export const ensureTopicTags = (force = false): RetagSummary => {
   const rules = topicRules();
   const signature = createHash('sha1').update(`${RULES_VERSION}|${JSON.stringify(rules)}`).digest('hex');
