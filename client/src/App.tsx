@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, App as AntApp, Button, ConfigProvider, Spin } from 'antd';
+import { App as AntApp, ConfigProvider, Spin } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { io } from 'socket.io-client';
 import { AppHeader } from './app/AppHeader';
@@ -10,6 +10,7 @@ import { TopicTagBar } from './features/topics/TopicTagBar';
 import { SettingsPage } from './features/settings/SettingsPage';
 import type { SettingsView } from './features/settings/SettingsPage';
 import { ApiError, request } from './shared/api';
+import { useApiNotice } from './shared/notify';
 import { splitInput } from './shared/format';
 import type {
   CollectionEvent, CollectionResult, Digest, EditingValue, EventDetail, FeedbackValue,
@@ -21,6 +22,9 @@ import type { EditorialBrief, WorkspaceView } from './shared/types';
 
 function SignalDock() {
   const { modal } = AntApp.useApp();
+  const notice = useApiNotice();
+  // 错误统一走 antd 轻提示；api 层的连接错误已自带「功能名称」
+  const setError = notice.error;
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('checking');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [sources, setSources] = useState<SourceOption[]>([]);
@@ -42,8 +46,6 @@ function SignalDock() {
   const [editing, setEditing] = useState<EditingValue | null>(null);
   const [editValue, setEditValue] = useState('');
   const [collecting, setCollecting] = useState(false);
-  const [collection, setCollection] = useState<CollectionResult | null>(null);
-  const [error, setError] = useState('');
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [digestOpen, setDigestOpen] = useState(false);
@@ -77,9 +79,11 @@ function SignalDock() {
   };
 
   const feedRequest = useRef(0);
+  // 慢连接较多：刷新时保留已有列表，避免每次都闪一遍骨架屏
+  const hasFeed = useRef(false);
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++feedRequest.current;
-    setFeedLoading(true);
+    if (!hasFeed.current) setFeedLoading(true);
     const query = new URLSearchParams({
       page: String(page),
       pageSize: '10',
@@ -91,8 +95,8 @@ function SignalDock() {
       ...(topicFilter ? { topicId: topicFilter } : {})
     });
     try {
-      const data = await request<FeedResponse>('/api/information?' + query, { signal });
-      if (requestId === feedRequest.current && !signal?.aborted) setFeedResponse(data);
+      const data = await request<FeedResponse>('/api/information?' + query, { signal, feature: '信息流' });
+      if (requestId === feedRequest.current && !signal?.aborted) { hasFeed.current = true; setFeedResponse(data); }
     } catch (caught) {
       if (!signal?.aborted && requestId === feedRequest.current) setError(caught instanceof Error ? caught.message : '信息流加载失败');
     } finally {
@@ -152,7 +156,7 @@ function SignalDock() {
   useEffect(() => {
     const socket = io({ withCredentials: true });
     socket.on('collection:status', (event: CollectionEvent) => {
-      if (event.status === 'failed') setError(event.error ?? '采集失败');
+      if (event.status === 'failed') setError('「采集任务」' + (event.error ?? '执行失败'));
       if (event.status === 'completed') {
         digestCache.current = null;
         void loadFeed();
@@ -173,7 +177,7 @@ function SignalDock() {
 
   const runCollection = async () => {
     if (!selectedSources.length) {
-      setError('至少选择一个信息源。');
+      setError('「立即采集」请至少选择一个信息源');
       return;
     }
     setCollecting(true);
@@ -182,7 +186,7 @@ function SignalDock() {
         method: 'POST',
         body: JSON.stringify({ sources: selectedSources })
       });
-      setCollection(result);
+      notice.success(`采集完成：新增 ${result.persistence.saved} 条，重复 ${result.persistence.duplicates} 条 · 勾选线索可继续提炼选题`);
       digestCache.current = null;
       setPage(1);
       await Promise.all([loadFeed(), loadOverview()]);
@@ -393,8 +397,6 @@ function SignalDock() {
         onSelectTopic={selectTopic}
         onManage={() => navigate('manage')}
       />
-      {error && <Alert className="page-alert" type="error" title={error} closable onClose={() => setError('')} showIcon />}
-      {collection && activeView === 'inbox' && <Alert className="page-alert" type="success" title={`采集完成：新增 ${collection.persistence.saved} 条，重复 ${collection.persistence.duplicates} 条`} description="勾选多条线索，点击“提炼选题”，继续形成提纲与行动。" action={<Button onClick={() => setCollection(null)}>知道了</Button>} />}
       {activeView === 'inbox' ? <main className="focus-layout">
         <InboxView
           overview={overview}
@@ -420,7 +422,7 @@ function SignalDock() {
           selectedIds={selectedIds}
           generating={generating}
           onToggleSelect={id => {
-            if (!selectedIds.includes(id) && selectedIds.length >= 20) { setError('最多选择20条线索'); return; }
+            if (!selectedIds.includes(id) && selectedIds.length >= 20) { setError('「提炼选题」最多选择 20 条线索'); return; }
             setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
           }}
           onSelectPage={() => setSelectedIds(current => [...new Set([...current, ...visibleItems.map(item => item.id)])].slice(0, 20))}

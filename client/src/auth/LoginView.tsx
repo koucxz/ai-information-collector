@@ -20,7 +20,7 @@ export function LoginView({ onLogin }: { onLogin: () => void }) {
       await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
       onLogin();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '登录失败');
+      setError(caught instanceof Error ? caught.message : '「登录」失败，请稍后重试');
     } finally { setLoading(false); }
   };
   return <main className="login-shell"><section className="login-story"><div className="brand"><span className="brand-mark"><Radar size={19} /></span><strong>SignalDock</strong></div><div><span className="editorial-eyebrow">YOUR PRIVATE SIGNAL SPACE</span><h1>从信息里，<br />找到你的下一步。</h1><p>把散落的线索整理成有依据的选题，<br />让每次关注都能走向行动。</p><div className="login-steps"><span><Compass size={16} />发现线索</span><span><NotebookPen size={16} />形成选题</span><span><ListChecks size={16} />采取行动</span></div></div><p><ShieldCheck size={15} />你的关注、资料与选题，仅自己可见。</p></section><form className="login-card" onSubmit={submit}>

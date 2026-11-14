@@ -44,21 +44,23 @@ export function AppHeader(props: AppHeaderProps) {
       <span className="workspace-breadcrumb">{breadcrumb}</span>
       <div className="top-actions">
         <button className={'service-state ' + serviceStatus} onClick={props.onCheckHealth}>
-          <i />{serviceStatus === 'online' ? '采集器在线' : serviceStatus === 'checking' ? '正在连接' : '服务离线'}
+          <i />{serviceStatus === 'online' ? '采集器在线' : serviceStatus === 'checking' ? '正在连接' : '连接异常 · 点击重试'}
         </button>
         <Badge dot={unreadCount > 0} offset={[-3, 4]}>
           <Tooltip title="今日摘要">
             <Button className="square-button" aria-label="今日摘要" icon={<Bell size={15} />} onClick={props.onLoadDigest} />
           </Tooltip>
         </Badge>
-        <Button
-          type="primary"
-          icon={<RefreshCw size={14} className={collecting ? 'spin' : ''} />}
-          loading={collecting}
-          onClick={props.onRunCollection}
-        >
-          立即采集
-        </Button>
+        <Tooltip title="当前仅手动采集；未启用定时计划。点击后按所选来源抓取一次">
+          <Button
+            type="primary"
+            icon={<RefreshCw size={14} className={collecting ? 'spin' : ''} />}
+            loading={collecting}
+            onClick={props.onRunCollection}
+          >
+            立即采集
+          </Button>
+        </Tooltip>
       </div>
     </header></>
   );
