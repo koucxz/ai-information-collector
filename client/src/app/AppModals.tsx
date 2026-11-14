@@ -1,19 +1,15 @@
 import { Empty, Input, Modal, Spin, Tag } from 'antd';
-import { ChevronRight } from 'lucide-react';
-import { formatTime } from '../shared/format';
-import type { Digest, EditingValue, EventDetail } from '../shared/types';
+import type { Digest, EditingValue } from '../shared/types';
 
 type AppModalsProps = {
   editing: EditingValue | null;
   editValue: string;
-  eventDetail: EventDetail | null;
   digest: Digest | null;
   digestOpen: boolean;
   digestLoading: boolean;
   onEditValueChange: (value: string) => void;
   onSaveEdit: () => void;
   onCloseEdit: () => void;
-  onCloseEvent: () => void;
   onCloseDigest: () => void;
 };
 
@@ -30,23 +26,6 @@ export function AppModals(props: AppModalsProps) {
         okButtonProps={{ disabled: !props.editValue.trim(), 'aria-label': '保存修改' }}
       >
         <Input autoFocus value={props.editValue} onChange={(event) => props.onEditValueChange(event.target.value)} onPressEnter={props.onSaveEdit} />
-      </Modal>
-
-      <Modal title={props.eventDetail?.title} open={Boolean(props.eventDetail)} footer={null} width={640} onCancel={props.onCloseEvent}>
-        {props.eventDetail && (
-          <div className="detail-modal">
-            <p>首次发现 {formatTime(props.eventDetail.firstSeenAt)} · 最近更新 {formatTime(props.eventDetail.lastSeenAt)} · {props.eventDetail.sourceCount} 个来源</p>
-            <div className="modal-list">
-              {props.eventDetail.sources.map((source) => (
-                <a href={source.url} target="_blank" rel="noreferrer" key={source.id}>
-                  <span className={'source-label source-' + source.source}>{source.sourceName}</span>
-                  <strong>{source.title}</strong>
-                  <ChevronRight size={14} />
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
       </Modal>
 
       <Modal title={props.digest?.title ?? '今日摘要'} open={props.digestOpen} footer={null} width={680} onCancel={props.onCloseDigest}>

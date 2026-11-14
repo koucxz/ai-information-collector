@@ -261,6 +261,13 @@ button { cursor: pointer; }
 .source-bilibili { background: #d85b85; }
 .source-weibo { background: #d5533f; }
 .source-baidu { background: #415fd4; }
+.source-hackernews { background: #ff6600; }
+.source-arxiv { background: #b31b1b; }
+.source-stackoverflow { background: #d97706; }
+.source-devto { background: #111827; }
+.source-lobsters { background: #a51c30; }
+.source-tech-media { background: #0f766e; }
+.source-cn-media { background: #16734a; }
 
 .feed-row a { color: inherit; text-decoration: none; }
 .feed-row a:hover h2 { color: #16734a; }
@@ -349,6 +356,7 @@ button { cursor: pointer; }
 
 .source-checkboxes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 8px; width: 100%; }
 .source-checkboxes .ant-checkbox-wrapper { margin: 0; color: #4e5a6b; font-size: 12px; }
+.source-hint { margin: 10px 0 0; color: #8a94a4; font-size: 11px; line-height: 1.6; }
 
 .topic-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .topic-form .ant-input:first-child, .topic-form .ant-btn { grid-column: 1 / -1; }

@@ -1,10 +1,11 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { env } from '../../config/env.js';
 import { runCollection } from '../collection/collection.service.js';
-import { sourceCatalog } from '../collection/source.registry.js';
+import { defaultSourceIds } from '../collection/source.registry.js';
 import { notificationEvents } from '../notifications/events.js';
 
-export const defaultCollectionSources: string[] = sourceCatalog.map((source) => source.id);
+// 定时采集也只用默认开启的来源，避免把低产出的抓取算进每一轮计划
+export const defaultCollectionSources: string[] = [...defaultSourceIds];
 
 export class CollectionRunner {
   private running = false;

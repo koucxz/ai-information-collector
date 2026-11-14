@@ -3,7 +3,7 @@ import { topicStore } from '../../db/client.js';
 import { collectTopics } from './collector.service.js';
 import { informationStore } from './information.store.js';
 import { historyStore } from './history.store.js';
-import { createSourceAdapters, sourceCatalog } from './source.registry.js';
+import { createSourceAdapters, defaultSourceIds, sourceCatalog } from './source.registry.js';
 import { collectionRunner } from '../automation/collection.scheduler.js';
 import { collectionRunStore } from './collection-run.store.js';
 
@@ -26,7 +26,7 @@ collectionRouter.get('/runs', (request, response) => response.json({ data: colle
 collectionRouter.get('/health', (_request, response) => response.json({ data: collectionRunStore.health() }));
 
 collectionRouter.post('/run', async (request, response) => {
-  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : sourceCatalog.map((source) => source.id);
+  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : [...defaultSourceIds];
   if (!sources.length) return response.status(400).json({ error: '至少选择一个信息源' });
   try {
     const outcome = await collectionRunner.trigger(sources);

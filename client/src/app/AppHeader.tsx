@@ -40,7 +40,7 @@ export function AppHeader(props: AppHeaderProps) {
         <span className="brand-mark"><Radar size={18} /></span>
         <strong>SignalDock</strong>
       </div>
-      <span className="workspace-private">个人工作区 · PRIVATE</span>
+      <span className="workspace-private">个人工作区</span>
       <nav className="workspace-nav" aria-label="主导航">
         {NAV.map(({ view, label, hint, icon: Icon }) => <button
           key={view}

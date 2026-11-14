@@ -77,7 +77,7 @@ export const parsePublicHtmlResults = (
   return results.slice(0, 20);
 };
 
-abstract class TimedAdapter implements SourceAdapter {
+export abstract class TimedAdapter implements SourceAdapter {
   abstract source: string;
   abstract sourceName: string;
   constructor(protected readonly fetcher: Fetcher = fetch, protected readonly requestTimeoutMs = timeoutMs) {}

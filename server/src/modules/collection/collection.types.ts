@@ -14,6 +14,8 @@ export type SearchResult = {
 export type SourceAdapter = {
   source: string;
   sourceName: string;
+  /** 单次采集最多使用的关键词数量：给有速率限制或配额的外文接口留余量。 */
+  maxQueries?: number;
   search(keyword: string, options?: { signal?: AbortSignal }): Promise<SearchResult[]>;
 };
 

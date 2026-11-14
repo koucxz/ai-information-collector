@@ -33,10 +33,14 @@ export function TopicSettingsPanel(props: TopicSettingsPanelProps) {
         <div className="drawer-heading"><div><h2>采集来源</h2><p>选择每次运行时需要检索的平台</p></div><span>{props.selectedSources.length} 个已启用</span></div>
         <Checkbox.Group
           className="source-checkboxes"
-          options={props.sources.map((source) => ({ label: source.name, value: source.id }))}
+          options={props.sources.map((source) => ({
+            label: source.hint ? <span title={source.hint}>{source.name}</span> : source.name,
+            value: source.id
+          }))}
           value={props.selectedSources}
           onChange={(values) => props.onSelectedSourcesChange(values.map(String))}
         />
+        <p className="source-hint">默认只勾选产出稳定的来源；百度、微博、知乎噪声或空结果较多，已默认关闭，需要时手动开启。</p>
       </section>
 
       <section className="drawer-section">

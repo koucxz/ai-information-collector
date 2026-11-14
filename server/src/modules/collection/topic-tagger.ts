@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { db, topicStore } from '../../db/client.js';
+import { cleanForMatch, compactForMatch, containsTerm } from './text-match.js';
 
 /**
  * 主题打标：过去只把采集时写入的 keyword 当分类，一条信息只能属于一个查询词，
@@ -27,23 +28,9 @@ type ItemRow = {
   analysis_summary: string; keyword: string; source_name: string;
 };
 
-const clean = (value: string) => String(value ?? '')
-  .normalize('NFKC')
-  .toLocaleLowerCase()
-  .replace(/<[^>]*>/g, ' ')
-  .replace(/[\s\u200b-\u200d\ufeff]+/gu, ' ')
-  .trim();
-/** 去掉标点与空格后的紧凑文本：让「AI 编程」也能命中「AI编程」「AI-编程」。 */
-const compact = (value: string) => clean(value).replace(/[^a-z0-9\u3400-\u9fff]+/gu, '');
+const clean = cleanForMatch;
+const compact = compactForMatch;
 const unique = (values: string[]) => [...new Set(values.map(clean).filter(Boolean))];
-const hasHan = (value: string) => /[\u3400-\u9fff]/u.test(value);
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const containsTerm = (text: string, dense: string, term: string) => {
-  if (!term) return false;
-  if (hasHan(term)) return dense.includes(compact(term));
-  const pattern = term.split(/\s+/).map(escapeRegExp).join('[\\s\\-_/]*');
-  return new RegExp(`(?<![a-z0-9])${pattern}(?![a-z0-9])`, 'i').test(text);
-};
 
 export const topicRules = (): TopicRule[] => topicStore.list().map((topic) => ({
   id: topic.id,

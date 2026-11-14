@@ -1,5 +1,5 @@
 import { Button, Checkbox, Empty, Input, Pagination, Segmented, Skeleton, Tag, Tooltip } from 'antd';
-import { Bookmark, BookmarkCheck, Check, Copy, ExternalLink, EyeOff, FilePlus2, Layers3, Search, ThumbsUp } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Check, Copy, ExternalLink, EyeOff, FilePlus2, Search, ThumbsUp } from 'lucide-react';
 import { originalUrl } from '../../shared/links';
 import { formatRelativeTime } from '../../shared/format';
 import type {
@@ -33,7 +33,6 @@ type InboxViewProps = {
   onTopicChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onOpenSettings: () => void;
-  onOpenEvent: (item: FeedItem) => void;
   selectedIds: string[];
   busy: boolean;
   onToggleSelect: (id: string) => void;
@@ -126,7 +125,6 @@ export function InboxView(props: InboxViewProps) {
                 <Checkbox aria-label={'选择线索：' + item.title} checked={props.selectedIds.includes(item.id)} disabled={props.busy} onChange={() => props.onToggleSelect(item.id)} />
                 <span className={'source-label source-' + item.source}>{item.sourceName}</span>
                 <span>{formatRelativeTime(item.collectedAt)}</span>
-                <button onClick={() => props.onOpenEvent(item)}><Layers3 size={12} />事件来源</button>
               </div>
               {originalUrl(item.url) ? <a href={originalUrl(item.url)} target="_blank" rel="noopener noreferrer"><h2>{item.title}</h2></a> : <h2>{item.title}</h2>}
               <p>{item.analysisSummary || item.summary || '暂无摘要'}</p>

@@ -21,6 +21,8 @@ export const mapGitHubReleases = (items: GitHubRelease[], keyword: string, repos
 export class GitHubAdapter implements SourceAdapter {
   source = 'github';
   sourceName = 'GitHub';
+  // 未登录时搜索接口只有 10 次/分钟，单次采集只用前几个关键词，避免整轮 403
+  maxQueries = 5;
   constructor(private readonly token = env.GITHUB_TOKEN, private readonly timeoutMs = 8_000, private readonly fetcher: typeof fetch = fetch) {}
 
   private async request<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -39,17 +41,15 @@ export class GitHubAdapter implements SourceAdapter {
 
   async search(keyword: string, options: { signal?: AbortSignal } = {}): Promise<SearchResult[]> {
     const query = encodeURIComponent(keyword);
-    const [repositories, issues] = await Promise.all([
-      this.request<{ items?: GitHubRepository[] }>(`/search/repositories?q=${query}&sort=updated&order=desc&per_page=5`, options.signal),
-      this.request<{ items?: GitHubIssue[] }>(`/search/issues?q=${query}+is%3Aissue&sort=updated&order=desc&per_page=10`, options.signal)
-    ]);
+    // 只保留仓库与 release：issue 里大量是提问和模板噪声，会稀释信息流质量
+    const repositories = await this.request<{ items?: GitHubRepository[] }>(`/search/repositories?q=${query}&sort=updated&order=desc&per_page=8`, options.signal);
     const repositoryItems = repositories.items ?? [];
-    const releaseRequests = await Promise.allSettled(repositoryItems.slice(0, 3).map(async (repository) => ({
+    const releaseRequests = await Promise.allSettled(repositoryItems.slice(0, 2).map(async (repository) => ({
       repository: repository.full_name,
-      releases: await this.request<GitHubRelease[]>(`/repos/${repository.full_name}/releases?per_page=3`, options.signal)
+      releases: await this.request<GitHubRelease[]>(`/repos/${repository.full_name}/releases?per_page=2`, options.signal)
     })));
     const releases = releaseRequests.flatMap((request) => request.status === 'fulfilled' ? mapGitHubReleases(request.value.releases, keyword, request.value.repository) : []);
-    return [...mapGitHubRepositories(repositoryItems, keyword), ...mapGitHubIssues(issues.items ?? [], keyword), ...releases];
+    return [...mapGitHubRepositories(repositoryItems, keyword), ...releases];
   }
 }
 

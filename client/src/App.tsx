@@ -13,7 +13,7 @@ import { ApiError, request } from './shared/api';
 import { useApiNotice } from './shared/notify';
 import { splitInput } from './shared/format';
 import type {
-  CollectionEvent, CollectionResult, Digest, EditingValue, EventDetail, FeedbackValue,
+  CollectionEvent, CollectionResult, Digest, EditingValue, FeedbackValue,
   FeedItem, FeedMode, FeedOverview, FeedResponse, FeedSort, Keyword, ServiceStatus, SourceOption, Topic
 } from './shared/types';
 import { LoginView } from './auth/LoginView';
@@ -47,7 +47,6 @@ function SignalDock() {
   const [editing, setEditing] = useState<EditingValue | null>(null);
   const [editValue, setEditValue] = useState('');
   const [collecting, setCollecting] = useState(false);
-  const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [digestOpen, setDigestOpen] = useState(false);
   const [digestLoading, setDigestLoading] = useState(false);
@@ -179,7 +178,8 @@ function SignalDock() {
     void loadOverview();
     void request<{ data: SourceOption[] }>('/api/collect/sources').then(({ data }) => {
       setSources(data);
-      setSelectedSources(data.map((source) => source.id));
+      // 只默认勾选产出稳定的来源；百度 / 微博 / 知乎在设置里手动开启
+      setSelectedSources(data.filter((source) => source.defaultOn !== false).map((source) => source.id));
     }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
   }, [checkHealth, loadOverview, loadTopics]);
 
@@ -222,7 +222,7 @@ function SignalDock() {
         method: 'POST',
         body: JSON.stringify({ sources: selectedSources })
       });
-      notice.success(`采集完成：新增 ${result.persistence.saved} 条，重复 ${result.persistence.duplicates} 条 · 勾选线索可继续提炼选题`);
+      notice.success(`采集完成：新增 ${result.persistence.saved} 条，重复 ${result.persistence.duplicates} 条 · 勾选线索可收藏或新建草稿`);
       digestCache.current = null;
       setPage(1);
       await Promise.all([loadFeed(), loadOverview()]);
@@ -350,14 +350,6 @@ function SignalDock() {
     }
   };
 
-  const openEvent = async (item: FeedItem) => {
-    try {
-      setEventDetail((await request<{ data: EventDetail }>('/api/information/' + item.id + '/event')).data);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '事件详情加载失败');
-    }
-  };
-
   // 点击即打开弹窗，先展示加载态；5 分钟内重复点击直接命中缓存，不再等接口
   const loadDigest = useCallback(async () => {
     setDigestOpen(true);
@@ -463,7 +455,6 @@ function SignalDock() {
           onTopicChange={(topicId) => { setTopicFilter(topicId); setPage(1); }}
           onPageChange={setPage}
           onOpenSettings={() => navigate('manage')}
-          onOpenEvent={(item) => void openEvent(item)}
           selectedIds={selectedIds}
           busy={busy}
           onToggleSelect={id => {
@@ -486,14 +477,12 @@ function SignalDock() {
       <AppModals
         editing={editing}
         editValue={editValue}
-        eventDetail={eventDetail}
         digest={digest}
         digestOpen={digestOpen}
         digestLoading={digestLoading}
         onEditValueChange={setEditValue}
         onSaveEdit={() => void saveEdit()}
         onCloseEdit={() => setEditing(null)}
-        onCloseEvent={() => setEventDetail(null)}
         onCloseDigest={() => setDigestOpen(false)}
       />
     </div>

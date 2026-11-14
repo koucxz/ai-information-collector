@@ -5,7 +5,7 @@ export type FeedSort = 'latest' | 'importance' | 'personalized';
 
 export type Keyword = { id: string; value: string; enabled: boolean };
 export type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; sourceIds: string[]; frequencyMinutes: number; notificationLevel: 'all' | 'important' | 'none'; description: string; enabled: boolean; keywords: Keyword[] };
-export type SourceOption = { id: string; name: string };
+export type SourceOption = { id: string; name: string; defaultOn?: boolean; hint?: string };
 export type ItemTopic = { id: string; name: string; score: number; primary: boolean };
 export type FeedItem = {
   id: string;
@@ -33,7 +33,6 @@ export type CollectionResult = {
   persistence: { saved: number; duplicates: number; changes: number };
   analysis: { processed: number; ai: number; fallback: number };
 };
-export type EventDetail = { title: string; firstSeenAt: string; lastSeenAt: string; sourceCount: number; sources: FeedItem[] };
 export type Digest = {
   title: string;
   total: number;
