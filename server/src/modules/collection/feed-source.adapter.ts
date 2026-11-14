@@ -131,5 +131,7 @@ export const CHINESE_TECH_MEDIA: FeedDefinition[] = [
   { name: 'IT之家', url: 'https://www.ithome.com/rss/', siteUrl: 'https://www.ithome.com' },
   { name: '量子位', url: 'https://www.qbitai.com/feed', siteUrl: 'https://www.qbitai.com' },
   { name: '开源中国', url: 'https://www.oschina.net/news/rss', siteUrl: 'https://www.oschina.net' },
-  { name: 'Solidot', url: 'https://www.solidot.org/index.rss', siteUrl: 'https://www.solidot.org' }
+  { name: 'Solidot', url: 'https://www.solidot.org/index.rss', siteUrl: 'https://www.solidot.org' },
+  { name: '雷峰网', url: 'https://www.leiphone.com/feed', siteUrl: 'https://www.leiphone.com' },
+  { name: '钛媒体', url: 'https://www.tmtpost.com/rss', siteUrl: 'https://www.tmtpost.com' }
 ];

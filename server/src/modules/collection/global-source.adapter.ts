@@ -84,7 +84,8 @@ type StackExchangeItem = {
 
 export const mapStackExchange = (items: StackExchangeItem[], keyword: string): SearchResult[] => items.flatMap((item) => {
   const title = clean(item.title);
-  if (!title || !item.link) return [];
+  // 负分问题基本是提问质量差或被关闭的，不进信息流
+  if (!title || !item.link || (item.score ?? 0) < 0) return [];
   const body = clean(item.body);
   const summary = body || `${item.score ?? 0} 分 · ${item.answer_count ?? 0} 个回答 · Stack Overflow`;
   return [normalizeResult({
@@ -101,7 +102,9 @@ export class StackExchangeAdapter extends TimedAdapter {
 
   async search(keyword: string): Promise<SearchResult[]> {
     const query = encodeURIComponent(primaryQuery(keyword));
-    const response = await this.request(`https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q=${query}&site=stackoverflow&pagesize=12&filter=withbody`);
+    // 只要近 90 天的提问，避免把多年前的问答当新信息推给用户
+    const from = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000);
+    const response = await this.request(`https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=creation&q=${query}&site=stackoverflow&pagesize=8&fromdate=${from}&filter=withbody`);
     const payload = await response.json() as { items?: StackExchangeItem[] };
     return keepRelevant(mapStackExchange(payload.items ?? [], keyword), keyword);
   }

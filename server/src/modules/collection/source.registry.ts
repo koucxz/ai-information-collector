@@ -25,7 +25,7 @@ export const sourceCatalog: SourceCatalogEntry[] = [
   { id: 'devto', name: 'DEV Community', defaultOn: true, hint: '英文开发者博客' },
   { id: 'lobsters', name: 'Lobsters', defaultOn: true, hint: '高质量技术社区，量小但信噪比高' },
   { id: 'tech-media', name: '国外科技媒体', defaultOn: true, hint: 'TechCrunch / The Verge / MIT 科技评论 / Wired / GitHub 博客 / OpenAI' },
-  { id: 'cn-media', name: '中文科技媒体', defaultOn: true, hint: '少数派 / IT之家 / 量子位 / 开源中国 / Solidot' },
+  { id: 'cn-media', name: '中文科技媒体', defaultOn: true, hint: '少数派 / IT之家 / 量子位 / 开源中国 / Solidot / 雷峰网 / 钛媒体' },
   { id: 'baidu', name: '百度', defaultOn: false, hint: '网页检索结果，百科与聚合页较多' },
   { id: 'weibo', name: '微博', defaultOn: false, hint: '经公开索引抓取，经常没有结果' },
   { id: 'zhihu', name: '知乎', defaultOn: false, hint: '经公开索引抓取，经常没有结果' }
