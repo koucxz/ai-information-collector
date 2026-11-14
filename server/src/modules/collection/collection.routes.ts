@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { topicStore } from '../../db/client.js';
+import { settingsStore, topicStore } from '../../db/client.js';
 import { collectTopics } from './collector.service.js';
 import { informationStore } from './information.store.js';
 import { historyStore } from './history.store.js';
-import { createSourceAdapters, defaultSourceIds, sourceCatalog } from './source.registry.js';
+import { COLLECTION_SOURCES_KEY, createSourceAdapters, resolveCollectionSources, sourceCatalog } from './source.registry.js';
 import { collectionRunner } from '../automation/collection.scheduler.js';
 import { collectionRunStore } from './collection-run.store.js';
 
@@ -21,12 +21,22 @@ collectionRouter.get('/preview', async (request, response) => {
   return response.json({ ...result, persistence });
 });
 
-collectionRouter.get('/sources', (_request, response) => response.json({ data: sourceCatalog }));
+collectionRouter.get('/sources', (_request, response) => response.json({ data: sourceCatalog, selected: resolveCollectionSources() }));
+
+collectionRouter.put('/sources', (request, response) => {
+  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : null;
+  if (!sources) return response.status(400).json({ error: 'sources 必须是来源 id 数组' });
+  if (!sources.length) return response.status(400).json({ error: '至少保留一个采集来源' });
+  const { unknown } = createSourceAdapters(sources);
+  if (unknown.length) return response.status(400).json({ error: `不支持的信息源：${unknown.join('、')}` });
+  settingsStore.set(COLLECTION_SOURCES_KEY, [...new Set(sources)]);
+  return response.json({ data: [...new Set(sources)] });
+});
 collectionRouter.get('/runs', (request, response) => response.json({ data: collectionRunStore.list(Math.min(100, Math.max(1, Number(request.query.limit) || 30))) }));
 collectionRouter.get('/health', (_request, response) => response.json({ data: collectionRunStore.health() }));
 
 collectionRouter.post('/run', async (request, response) => {
-  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : [...defaultSourceIds];
+  const sources = Array.isArray(request.body?.sources) ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string') : resolveCollectionSources();
   if (!sources.length) return response.status(400).json({ error: '至少选择一个信息源' });
   try {
     const outcome = await collectionRunner.trigger(sources);

@@ -1,17 +1,16 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { env } from '../../config/env.js';
 import { runCollection } from '../collection/collection.service.js';
-import { defaultSourceIds } from '../collection/source.registry.js';
+import { resolveCollectionSources } from '../collection/source.registry.js';
 import { notificationEvents } from '../notifications/events.js';
 
 // 定时采集也只用默认开启的来源，避免把低产出的抓取算进每一轮计划
-export const defaultCollectionSources: string[] = [...defaultSourceIds];
-
 export class CollectionRunner {
   private running = false;
   constructor(private readonly execute: typeof runCollection = runCollection, private readonly events = notificationEvents) {}
 
-  async trigger(sources: string[] = defaultCollectionSources) {
+  // 每轮都重新读设置：设置页改完，下一轮定时采集就跟着变
+  async trigger(sources: string[] = resolveCollectionSources()) {
     if (this.running) return { status: 'skipped' as const, reason: '已有采集任务正在运行' };
     this.running = true;
     const timestamp = new Date().toISOString();
@@ -30,8 +29,12 @@ export class CollectionRunner {
 
 export const collectionRunner = new CollectionRunner();
 
+// 显式指定时区：容器默认 UTC，写成北京时间会差 8 小时
 export const startCollectionScheduler = (runner = collectionRunner): ScheduledTask | undefined => {
   if (!env.COLLECTION_SCHEDULE_ENABLED) return undefined;
-  return cron.schedule(env.COLLECTION_CRON, () => { void runner.trigger(); });
+  const task = cron.schedule(env.COLLECTION_CRON, () => { void runner.trigger(); }, { timezone: env.SCHEDULE_TIMEZONE });
+  const next = (task as unknown as { getNextRun?: () => Date | null }).getNextRun?.();
+  console.log(`[采集调度] 已启用 ${env.COLLECTION_CRON} (${env.SCHEDULE_TIMEZONE})，下次触发 ${next?.toISOString() ?? '未知'}`);
+  return task;
 };
 

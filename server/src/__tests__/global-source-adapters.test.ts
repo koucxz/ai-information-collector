@@ -94,14 +94,14 @@ describe('global source adapters', () => {
       return new Response(url.includes('a.example') ? rss : atom);
     };
     const adapter = new FeedSourceAdapter({
-      source: 'tech-media', sourceName: '国外科技媒体',
+      source: 'techcrunch', sourceName: 'TechCrunch',
       feeds: [{ name: 'A 站', url: 'https://a.example/feed', siteUrl: 'https://a.example' }, { name: 'B 站', url: 'https://b.example/feed', siteUrl: 'https://b.example' }]
     }, fetcher, 1_000);
     const cursor = await adapter.search('Cursor');
     const llm = await adapter.search('大模型');
     expect(calls).toHaveLength(2);
     expect(cursor[0].sourceName).toBe('A 站');
-    expect(cursor[0].source).toBe('tech-media');
+    expect(cursor[0].source).toBe('techcrunch');
     expect(llm.length).toBeGreaterThan(0);
   });
 
@@ -118,13 +118,22 @@ describe('global source adapters', () => {
 });
 
 describe('source catalog and quotas', () => {
-  it('exposes high-quality foreign sources by default and keeps noisy ones opt-in', () => {
+  it('exposes high-quality sources by default and keeps noisy ones opt-in', () => {
     const ids = sourceCatalog.map((source) => source.id);
-    for (const id of ['hackernews', 'arxiv', 'stackoverflow', 'devto', 'lobsters', 'tech-media', 'cn-media']) expect(ids).toContain(id);
+    for (const id of ['hackernews', 'arxiv', 'stackoverflow', 'devto', 'lobsters']) expect(ids).toContain(id);
+    // 媒体按站点拆开，一站一个来源，便于单独开关
+    for (const id of ['techcrunch', 'github-blog', 'openai', 'ithome', 'qbitai', 'sspai', 'oschina', 'solidot', 'leiphone']) expect(ids).toContain(id);
+    // 实测每轮 0 条命中的站点不再暴露，原来的打包来源也已移除
+    for (const id of ['tech-media', 'cn-media', 'theverge', 'technologyreview', 'wired', 'tmtpost']) expect(ids).not.toContain(id);
+    expect(new Set(ids).size).toBe(ids.length);
+    // 设置页按平台 / 媒体 / 其他分组展示
+    for (const source of sourceCatalog) expect(['platform', 'media', 'other']).toContain(source.group);
     expect(sourceCatalog.find((source) => source.id === 'baidu')?.defaultOn).toBe(false);
     expect(sourceCatalog.find((source) => source.id === 'weibo')?.defaultOn).toBe(false);
     expect(defaultSourceIds).not.toContain('zhihu');
-    expect(createSourceAdapters(['hackernews', 'tech-media']).adapters).toHaveLength(2);
+    expect(createSourceAdapters(['hackernews', 'techcrunch']).adapters).toHaveLength(2);
+    // 拆分后每个媒体来源只挂一个 feed，避免一站失败拖累同组其它站
+    expect(createSourceAdapters(['ithome', 'qbitai', 'openai']).adapters.map((adapter) => adapter.source)).toEqual(['ithome', 'qbitai', 'openai']);
   });
 
   it('honours maxQueries so rate-limited sources do not burn the whole keyword list', async () => {

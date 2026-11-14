@@ -21,7 +21,8 @@ const mapWithConcurrency = async <T, R>(items: T[], limit: number, worker: (item
 export const collectTopics = async (topics: TopicConfig[], adapters: SourceAdapter[]): Promise<CollectionResponse> => {
   const activeTopics = topics.filter((topic) => topic.enabled);
   const queries = expandTopicQueries(activeTopics);
-  const collected = await mapWithConcurrency(adapters, 4, async (adapter) => {
+  // 媒体拆成单站后来源数变多，并发放到 6：每个来源内部仍按关键词串行，不会打爆同一站点
+  const collected = await mapWithConcurrency(adapters, 6, async (adapter) => {
     const scopedTopics = activeTopics.filter((topic) => !topic.sourceIds?.length || topic.sourceIds.includes(adapter.source));
     const allQueries = expandTopicQueries(scopedTopics);
     const scopedQueries = adapter.maxQueries ? allQueries.slice(0, adapter.maxQueries) : allQueries;

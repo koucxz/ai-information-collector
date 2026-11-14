@@ -5,7 +5,7 @@ export type FeedSort = 'latest' | 'importance' | 'personalized';
 
 export type Keyword = { id: string; value: string; enabled: boolean };
 export type Topic = { id: string; name: string; aliases: string[]; excludeWords: string[]; sourceIds: string[]; frequencyMinutes: number; notificationLevel: 'all' | 'important' | 'none'; description: string; enabled: boolean; keywords: Keyword[] };
-export type SourceOption = { id: string; name: string; defaultOn?: boolean; hint?: string };
+export type SourceOption = { id: string; name: string; defaultOn?: boolean; hint?: string; group?: 'platform' | 'media' | 'other' };
 export type ItemTopic = { id: string; name: string; score: number; primary: boolean };
 export type FeedItem = {
   id: string;
@@ -76,4 +76,8 @@ export type EditorialBrief = {
   provider: 'ai' | 'fallback'; archived: boolean;
   content?: string; status?: BriefStatus; publishedAt?: string; signal?: BriefSignal;
   tags?: string[];
+  /** 后台写稿中：页面按这个字段轮询，正文写完自动铺进来 */
+  writing?: boolean;
+  writeNote?: string;
+  digest?: string;
 };

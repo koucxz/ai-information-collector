@@ -116,22 +116,27 @@ export class FeedSourceAdapter extends TimedAdapter {
   }
 }
 
-/** 国内外科技媒体的 feed 清单：单独一处维护，增删媒体不影响适配器逻辑。 */
-export const FOREIGN_TECH_MEDIA: FeedDefinition[] = [
-  { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', siteUrl: 'https://techcrunch.com' },
-  { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', siteUrl: 'https://www.theverge.com' },
-  { name: 'MIT 科技评论', url: 'https://www.technologyreview.com/feed/', siteUrl: 'https://www.technologyreview.com' },
-  { name: 'Wired', url: 'https://www.wired.com/feed/rss', siteUrl: 'https://www.wired.com' },
-  { name: 'GitHub 博客', url: 'https://github.blog/feed/', siteUrl: 'https://github.blog' },
-  { name: 'OpenAI', url: 'https://openai.com/news/rss.xml', siteUrl: 'https://openai.com' }
-];
+/**
+ * 媒体来源一站一个，单独勾选。
+ * 打包成「国外科技媒体 / 中文科技媒体」时看不出具体站点，也没法单独取舍；
+ * The Verge / MIT 科技评论 / Wired / 钛媒体 实测每轮 0 条命中，直接不再纳入。
+ */
+export type MediaFeedSource = {
+  id: string;
+  name: string;
+  defaultOn: boolean;
+  hint: string;
+  feed: FeedDefinition;
+};
 
-export const CHINESE_TECH_MEDIA: FeedDefinition[] = [
-  { name: '少数派', url: 'https://sspai.com/feed', siteUrl: 'https://sspai.com' },
-  { name: 'IT之家', url: 'https://www.ithome.com/rss/', siteUrl: 'https://www.ithome.com' },
-  { name: '量子位', url: 'https://www.qbitai.com/feed', siteUrl: 'https://www.qbitai.com' },
-  { name: '开源中国', url: 'https://www.oschina.net/news/rss', siteUrl: 'https://www.oschina.net' },
-  { name: 'Solidot', url: 'https://www.solidot.org/index.rss', siteUrl: 'https://www.solidot.org' },
-  { name: '雷峰网', url: 'https://www.leiphone.com/feed', siteUrl: 'https://www.leiphone.com' },
-  { name: '钛媒体', url: 'https://www.tmtpost.com/rss', siteUrl: 'https://www.tmtpost.com' }
+export const mediaFeedSources: MediaFeedSource[] = [
+  { id: 'techcrunch', name: 'TechCrunch', defaultOn: true, hint: '国外科技创投与产品新闻，AI 相关约三成', feed: { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', siteUrl: 'https://techcrunch.com' } },
+  { id: 'github-blog', name: 'GitHub 博客', defaultOn: true, hint: '官方工程与 AI 编程实践，量小但信噪比高', feed: { name: 'GitHub 博客', url: 'https://github.blog/feed/', siteUrl: 'https://github.blog' } },
+  { id: 'openai', name: 'OpenAI', defaultOn: true, hint: '官方公告与客户案例，产品发布偏少', feed: { name: 'OpenAI', url: 'https://openai.com/news/rss.xml', siteUrl: 'https://openai.com' } },
+  { id: 'ithome', name: 'IT之家', defaultOn: true, hint: '国内科技新闻，更新快、AI 相关多', feed: { name: 'IT之家', url: 'https://www.ithome.com/rss/', siteUrl: 'https://www.ithome.com' } },
+  { id: 'qbitai', name: '量子位', defaultOn: true, hint: 'AI 垂直媒体，依赖关键词覆盖人名与公司名', feed: { name: '量子位', url: 'https://www.qbitai.com/feed', siteUrl: 'https://www.qbitai.com' } },
+  { id: 'sspai', name: '少数派', defaultOn: true, hint: '偏工具与深度体验，AI 内容质量较好', feed: { name: '少数派', url: 'https://sspai.com/feed', siteUrl: 'https://sspai.com' } },
+  { id: 'oschina', name: '开源中国', defaultOn: true, hint: '开源项目动态，含较多发版公告', feed: { name: '开源中国', url: 'https://www.oschina.net/news/rss', siteUrl: 'https://www.oschina.net' } },
+  { id: 'solidot', name: 'Solidot', defaultOn: true, hint: '奇客资讯，量小但准确', feed: { name: 'Solidot', url: 'https://www.solidot.org/index.rss', siteUrl: 'https://www.solidot.org' } },
+  { id: 'leiphone', name: '雷峰网', defaultOn: true, hint: 'AI 与创投报道，掺融资与人事新闻', feed: { name: '雷峰网', url: 'https://www.leiphone.com/feed', siteUrl: 'https://www.leiphone.com' } }
 ];

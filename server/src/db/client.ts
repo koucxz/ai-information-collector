@@ -43,6 +43,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS editorial_briefs_generation_idx ON editorial_briefs(generation_key);
   CREATE TABLE IF NOT EXISTS generation_usage (day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS ai_usage (day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS workspace_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL);
 `);
 
 const ensureColumn = (table: string, column: string, definition: string) => {
@@ -87,6 +88,18 @@ export const analysisCallStore = {
     db.prepare('INSERT INTO analysis_calls (id, item_id, provider, status, attempts, duration_ms, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(randomUUID(), input.itemId ?? null, input.provider, input.status, input.attempts, input.durationMs, input.error ?? null, now());
   },
   list(limit = 50) { return db.prepare('SELECT id, item_id AS itemId, provider, status, attempts, duration_ms AS durationMs, error, created_at AS createdAt FROM analysis_calls ORDER BY created_at DESC LIMIT ?').all(Math.min(200, Math.max(1, limit))); }
+};
+
+/** 工作区级设置：目前存采集来源选择，页面刷新和定时任务都读同一份。 */
+export const settingsStore = {
+  get<T>(key: string): T | undefined {
+    const row = db.prepare('SELECT value_json FROM workspace_settings WHERE key = ?').get(key) as { value_json: string } | undefined;
+    if (!row) return undefined;
+    try { return JSON.parse(row.value_json) as T; } catch { return undefined; }
+  },
+  set(key: string, value: unknown) {
+    db.prepare('INSERT INTO workspace_settings (key, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at').run(key, JSON.stringify(value), now());
+  }
 };
 
 export type NotificationChannelType = 'feishu' | 'wecom' | 'dingtalk' | 'webhook';

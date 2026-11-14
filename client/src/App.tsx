@@ -51,6 +51,7 @@ function SignalDock() {
   const [digestOpen, setDigestOpen] = useState(false);
   const [digestLoading, setDigestLoading] = useState(false);
   const digestCache = useRef<{ data: Digest; at: number } | null>(null);
+  const sourceSaveTimer = useRef<number | undefined>(undefined);
   const [activeView, setActiveView] = useState<WorkspaceView>('inbox');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -87,7 +88,7 @@ function SignalDock() {
       setBriefRevision((value) => value + 1);
       setSelectedIds([]);
       setActiveView('posts');
-      notice.success(itemIds.length ? `已用 ${itemIds.length} 条素材新建草稿` : '已新建空白草稿');
+      notice.success(itemIds.length ? `已用 ${itemIds.length} 条素材新建草稿，正在写正文` : '已新建空白草稿');
     } catch (caught) { setError(caught instanceof Error ? caught.message : '「新建草稿」失败'); }
     finally { setBusy(false); }
   };
@@ -176,10 +177,11 @@ function SignalDock() {
     void checkHealth();
     void loadTopics();
     void loadOverview();
-    void request<{ data: SourceOption[] }>('/api/collect/sources').then(({ data }) => {
+    void request<{ data: SourceOption[]; selected?: string[] }>('/api/collect/sources').then(({ data, selected }) => {
       setSources(data);
-      // 只默认勾选产出稳定的来源；百度 / 微博 / 知乎在设置里手动开启
-      setSelectedSources(data.filter((source) => source.defaultOn !== false).map((source) => source.id));
+      // 设置页保存过的选择优先；没保存过才按默认勾选
+      const saved = (selected ?? []).filter((id) => data.some((source) => source.id === id));
+      setSelectedSources(saved.length ? saved : data.filter((source) => source.defaultOn !== false).map((source) => source.id));
     }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
   }, [checkHealth, loadOverview, loadTopics]);
 
@@ -372,6 +374,18 @@ function SignalDock() {
     }
   }, []);
 
+  // 勾选变化先落到界面上，停顿 400ms 再写回服务端，刷新页面和定时采集都按这份走
+  const changeSources = useCallback((next: string[]) => {
+    if (!next.length) { setError('「采集来源」至少保留一个'); return; }
+    setSelectedSources(next);
+    window.clearTimeout(sourceSaveTimer.current);
+    sourceSaveTimer.current = window.setTimeout(() => {
+      void request('/api/collect/sources', { method: 'PUT', body: JSON.stringify({ sources: next }) })
+        .then(() => notice.success(`「采集来源」已保存，共 ${next.length} 个`))
+        .catch((caught) => setError(caught instanceof Error ? caught.message : '来源保存失败'));
+    }, 400);
+  }, [notice, setError]);
+
   const changeMode = (mode: FeedMode) => {
     setFeedMode(mode);
     setPage(1);
@@ -386,7 +400,7 @@ function SignalDock() {
     topics,
     enabledKeywordCount,
     keywordDrafts,
-    onSelectedSourcesChange: setSelectedSources,
+    onSelectedSourcesChange: changeSources,
     onTopicNameChange: setTopicName,
     onTopicAliasesChange: setTopicAliases,
     onTopicExcludesChange: setTopicExcludes,
@@ -412,16 +426,9 @@ function SignalDock() {
         activeView={activeView}
         onNavigate={navigate}
         onLogout={() => {
-          const doLogout = () => void request('/api/auth/logout', { method: 'POST' })
+          void request('/api/auth/logout', { method: 'POST' })
             .then(() => window.dispatchEvent(new Event('signaldock:unauthorized')))
             .catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
-          modal.confirm({
-            title: editorialDirty ? '退出登录并放弃未保存的修改？' : '退出登录？',
-            content: editorialDirty ? '当前文章有未保存的修改，退出后会丢失。' : '退出后需要重新输入账号密码才能进入。',
-            okText: '退出登录', cancelText: '取消',
-            okButtonProps: { danger: true },
-            onOk: doLogout
-          });
         }}
       />
       <TopicTagBar

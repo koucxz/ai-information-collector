@@ -26,21 +26,47 @@ export type TopicSettingsPanelProps = {
   onStartEdit: (editing: EditingValue, value: string) => void;
 };
 
+const SOURCE_GROUPS: Array<{ key: 'platform' | 'media' | 'other'; title: string }> = [
+  { key: 'platform', title: '技术平台' },
+  { key: 'media', title: '科技媒体' },
+  { key: 'other', title: '其他来源' }
+];
+
 export function TopicSettingsPanel(props: TopicSettingsPanelProps) {
+  // 分组渲染时 Checkbox.Group 只回传本组的值，需要按目录顺序合并回总集
+  const toggleGroup = (group: string, values: string[]) => {
+    const picked = new Set(values);
+    props.onSelectedSourcesChange(props.sources
+      .filter((source) => (source.group ?? 'platform') === group ? picked.has(source.id) : props.selectedSources.includes(source.id))
+      .map((source) => source.id));
+  };
+
   return (
     <>
       <section className="drawer-section">
-        <div className="drawer-heading"><div><h2>采集来源</h2><p>选择每次运行时需要检索的平台</p></div><span>{props.selectedSources.length} 个已启用</span></div>
-        <Checkbox.Group
-          className="source-checkboxes"
-          options={props.sources.map((source) => ({
-            label: source.hint ? <span title={source.hint}>{source.name}</span> : source.name,
-            value: source.id
-          }))}
-          value={props.selectedSources}
-          onChange={(values) => props.onSelectedSourcesChange(values.map(String))}
-        />
-        <p className="source-hint">默认只勾选产出稳定的来源；百度、微博、知乎噪声或空结果较多，已默认关闭，需要时手动开启。</p>
+        <div className="drawer-heading"><div><h2>采集来源</h2><p>选择每次运行时需要检索的平台与媒体</p></div><span>{props.selectedSources.length} 个已启用</span></div>
+        {SOURCE_GROUPS.map((group) => {
+          const options = props.sources.filter((source) => (source.group ?? 'platform') === group.key);
+          if (!options.length) return null;
+          const enabled = options.filter((source) => props.selectedSources.includes(source.id)).length;
+          return (
+            <div className="source-group" key={group.key}>
+              <div className="source-group-head">
+                <strong>{group.title}</strong>
+                <em>{enabled}/{options.length}</em>
+              </div>
+              <Checkbox.Group
+                className="source-checkboxes"
+                options={options.map((source) => ({
+                  label: source.hint ? <span title={source.hint}>{source.name}</span> : source.name,
+                  value: source.id
+                }))}
+                value={props.selectedSources}
+                onChange={(values) => toggleGroup(group.key, values.map(String))}
+              />
+            </div>
+          );
+        })}
       </section>
 
       <section className="drawer-section">
