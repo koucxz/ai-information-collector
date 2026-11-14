@@ -1,15 +1,20 @@
 import { env } from '../../config/env.js';
 import { analysisCallStore } from '../../db/client.js';
+import { matchesQuery } from '../collection/query-terms.js';
 import { analysisResultSchema, type AnalysisResult, type AnalyzableInformation } from './analysis.types.js';
 import { withAiBudget } from './ai-budget.js';
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
 export const fallbackAnalyze = (item: AnalyzableInformation, error?: string): AnalysisResult => {
-  const text = `${item.title} ${item.summary} ${item.content}`.toLocaleLowerCase();
-  const keywordHit = text.includes(item.keyword.toLocaleLowerCase());
-  const importantWords = ['发布', '安全', '政策', '融资', '重大', '开源', '性能'];
-  const importanceScore = clamp((importantWords.some((word) => text.includes(word)) ? 0.75 : 0.45) + (keywordHit ? 0.1 : 0));
+  const text = `${item.title} ${item.summary} ${item.content}`;
+  // 用中英双语匹配：外文来源的关键词命中不该因为写成英文就被判成低相关
+  const keywordHit = matchesQuery(text, item.keyword);
+  const importantWords = [
+    '发布', '安全', '政策', '融资', '重大', '开源', '性能',
+    'release', 'launch', 'security', 'funding', 'open source', 'benchmark', 'vulnerability', 'outage'
+  ];
+  const importanceScore = clamp((importantWords.some((word) => text.toLocaleLowerCase().includes(word)) ? 0.75 : 0.45) + (keywordHit ? 0.1 : 0));
   return { relevanceScore: keywordHit ? 0.9 : 0.35, importanceScore, summary: item.summary || item.content.slice(0, 120), reason: keywordHit ? '标题或正文直接命中关注关键词。' : '根据标题和正文做本地规则判断。', provider: 'fallback', ...(error ? { error } : {}) };
 };
 
