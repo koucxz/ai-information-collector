@@ -5,7 +5,7 @@ import { analysisCallStore, db } from '../../db/client.js';
 import { informationStore } from '../collection/information.store.js';
 import { draftSchema, type Brief, type BriefDocument, type SourceSnapshot } from './brief.schemas.js';
 import { briefStore } from './brief.store.js';
-import { aiTokenUsage, usageTokens, withAiBudget } from '../analysis/ai-budget.js';
+import { aiTokenUsage, budgetDay, usageTokens, withAiBudget } from '../analysis/ai-budget.js';
 import { buildSignal, findCandidate, signalOfCandidate, type BriefSignal } from './candidates.js';
 
 export class BriefError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -35,7 +35,7 @@ export const validateModelDrafts = (input: unknown, sources: SourceSnapshot[]): 
 
 async function generate(key: string, sources: SourceSnapshot[], label: string, signal: BriefSignal, suggestedTitle?: string) {
   // Reserve a persistent daily allowance before any external request. No retries amplify cost.
-  const day = new Date().toISOString().slice(0, 10);
+  const day = budgetDay();
   const reserved = db.prepare('INSERT INTO generation_usage (day, count) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count').get(day, env.BRIEF_DAILY_LIMIT);
   if (!reserved) throw new BriefError(429, '今天的选题生成额度已用完，已有选题仍可编辑和导出');
   let documents = [template(sources, label)];

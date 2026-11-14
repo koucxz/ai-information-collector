@@ -7,6 +7,7 @@ import { informationStore } from '../modules/collection/information.store.js';
 import { normalizeResult } from '../modules/collection/normalize.js';
 import { createBackup, restoreBackup } from '../modules/data/data.service.js';
 import { generateBriefs, validateModelDrafts } from '../modules/briefs/brief.service.js';
+import { budgetDay } from '../modules/analysis/ai-budget.js';
 import type { Brief, SourceSnapshot } from '../modules/briefs/brief.schemas.js';
 
 const seed = () => {
@@ -65,7 +66,7 @@ describe('batch editorial workflow', () => {
 
   it('enforces persistent daily quota before external calls, while reusing existing work', async () => {
     const ids = seed();
-    db.prepare('INSERT INTO generation_usage (day, count) VALUES (?, ?)').run(new Date().toISOString().slice(0, 10), env.BRIEF_DAILY_LIMIT);
+    db.prepare('INSERT INTO generation_usage (day, count) VALUES (?, ?)').run(budgetDay(), env.BRIEF_DAILY_LIMIT);
     const response = await request(app).post('/api/briefs/generate').send({ itemIds: ids });
     expect(response.status).toBe(429); expect((await request(app).get('/api/briefs')).body.data).toHaveLength(0);
   });

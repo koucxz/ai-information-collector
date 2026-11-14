@@ -3,7 +3,16 @@ import { db } from '../../db/client.js';
 
 let active = 0;
 
-const today = () => new Date().toISOString().slice(0, 10);
+// 额度按北京时间换天：容器里 TZ 可能是 UTC，用本地日期会在早上 8 点莫名其妙重置
+export const budgetDay = (): string => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date());
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${pick('year')}-${pick('month')}-${pick('day')}`;
+};
+
+const today = budgetDay;
 
 type ProviderUsage = { usage?: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number } };
 
