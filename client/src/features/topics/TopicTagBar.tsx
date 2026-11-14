@@ -21,7 +21,7 @@ export function TopicTagBar(props: TopicTagBarProps) {
   const countOf = (id: string) => props.topicCounts[id] ?? 0;
   return (
     <div className="topic-tagbar" aria-label="按主题筛选信息">
-      <span className="topic-tagbar-label">主题筛选</span>
+      <span className="topic-tagbar-label" title="按标题和摘要自动打标，一条信息可以属于多个主题，所以各主题条数相加可能大于总条数">主题筛选</span>
       <div className="topic-tagbar-list">
         <button
           className={'topic-tag topic-tag-all' + (props.selectedTopicId ? '' : ' is-active')}

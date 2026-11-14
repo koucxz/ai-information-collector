@@ -202,7 +202,7 @@ export function PostsView(props: Props) {
       <div>
         <p>共 {briefs.length} 篇文章 · 草稿与已发布</p>
         <h1>文章</h1>
-        <span>像 Ghost / Halo 一样：左边选文章，中间写正文，右边是发布设置和检查清单。检查项只提醒，不阻止你发布。</span>
+        <span>左边选文章，中间写正文，右边是发布设置和检查清单。检查项只是提醒，没勾完也可以发布。</span>
       </div>
       <div className="view-heading-actions">
         <Button onClick={() => props.onNavigate('saved')}>从收藏夹选素材</Button>
