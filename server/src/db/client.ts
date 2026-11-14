@@ -43,6 +43,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS editorial_briefs_generation_idx ON editorial_briefs(generation_key);
   CREATE TABLE IF NOT EXISTS generation_usage (day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS ai_usage (day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS ai_token_usage (day TEXT PRIMARY KEY, tokens INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS workspace_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL);
 `);
 

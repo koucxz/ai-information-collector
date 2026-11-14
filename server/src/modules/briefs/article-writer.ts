@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { env } from '../../config/env.js';
-import { withAiBudget } from '../analysis/ai-budget.js';
+import { aiTokenUsage, assertTokenRoom, usageTokens, withAiBudget } from '../analysis/ai-budget.js';
 import { analysisCallStore } from '../../db/client.js';
 import { cleanText as cleanMaterialText } from '../collection/normalize.js';
 import { readSourcePage } from './source-reader.js';
@@ -382,6 +382,8 @@ export const parseAiArticle = (raw: string) => {
 };
 
 const requestArticle = async (materials: ArticleMaterial[], label: string, options: { temperature: number; notes: string }) => {
+  // 写稿一次就要烧掉上万 token（推理 token 也算），余额明显不够时直接说清楚，别让用户白等两分钟
+  assertTokenRoom(Math.round(materials.reduce((sum, material) => sum + materialBody(material).length, 0) / 1.5) + env.AI_WRITER_MAX_TOKENS);
   const payload = await withAiBudget(async () => {
     const response = await fetch(`${env.AI_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
       method: 'POST',
@@ -411,8 +413,9 @@ const requestArticle = async (materials: ArticleMaterial[], label: string, optio
       const detail = (await response.text()).slice(0, 240).replace(/\s+/g, ' ');
       throw new Error(`AI HTTP ${response.status}：${detail}`);
     }
-    return await response.json() as { choices?: { message?: { content?: string }; finish_reason?: string }[] };
+    return await response.json() as { choices?: { message?: { content?: string }; finish_reason?: string }[]; usage?: { total_tokens?: number } };
   });
+  aiTokenUsage.record(usageTokens(payload), env.AI_WRITER_MAX_TOKENS);
   const choice = payload.choices?.[0];
   // 推理 token 也算在 max_tokens 里，撞上限时 JSON 会被切断，直接判失败让上层重写
   if (choice?.finish_reason === 'length') throw new Error('AI 输出被 token 上限截断');

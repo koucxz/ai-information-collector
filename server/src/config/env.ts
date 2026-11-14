@@ -19,6 +19,8 @@ const envSchema = z.object({
   AI_MAX_RETRIES: z.coerce.number().int().min(0).max(4).default(2),
   AI_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(3),
   AI_DAILY_LIMIT: z.coerce.number().int().min(1).max(100000).default(300),
+  // 每天允许消耗的 token 总量：换算成钱比请求数更直观，模型一次写稿就能吃掉几万 token
+  AI_DAILY_TOKEN_LIMIT: z.coerce.number().int().min(1000).max(100000000).default(2000000),
   BRIEF_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(30),
   GITHUB_TOKEN: z.string().optional(),
   COLLECTION_SCHEDULE_ENABLED: booleanString,
@@ -55,6 +57,7 @@ export const env = envSchema.parse({
   AI_MAX_RETRIES: process.env.AI_MAX_RETRIES,
   AI_CONCURRENCY: process.env.AI_CONCURRENCY,
   AI_DAILY_LIMIT: process.env.AI_DAILY_LIMIT,
+  AI_DAILY_TOKEN_LIMIT: process.env.AI_DAILY_TOKEN_LIMIT,
   BRIEF_DAILY_LIMIT: process.env.BRIEF_DAILY_LIMIT,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   COLLECTION_SCHEDULE_ENABLED: process.env.COLLECTION_SCHEDULE_ENABLED,

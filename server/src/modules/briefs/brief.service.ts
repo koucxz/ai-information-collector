@@ -5,7 +5,7 @@ import { analysisCallStore, db } from '../../db/client.js';
 import { informationStore } from '../collection/information.store.js';
 import { draftSchema, type Brief, type BriefDocument, type SourceSnapshot } from './brief.schemas.js';
 import { briefStore } from './brief.store.js';
-import { withAiBudget } from '../analysis/ai-budget.js';
+import { aiTokenUsage, usageTokens, withAiBudget } from '../analysis/ai-budget.js';
 import { buildSignal, findCandidate, signalOfCandidate, type BriefSignal } from './candidates.js';
 
 export class BriefError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -52,8 +52,9 @@ async function generate(key: string, sources: SourceSnapshot[], label: string, s
           ] })
         });
         if (!response.ok) throw new Error(`AI HTTP ${response.status}`);
-        return await response.json() as { choices?: { message?: { content?: string } }[] };
+        return await response.json() as { choices?: { message?: { content?: string } }[]; usage?: { total_tokens?: number } };
       });
+      aiTokenUsage.record(usageTokens(payload), Math.round(JSON.stringify(sources).length / 2) + 1500);
       const content = payload.choices?.[0]?.message?.content ?? '';
       documents = validateModelDrafts(JSON.parse(content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()), sources);
       analysisCallStore.record({ provider: 'brief-ai', status: 'success', attempts: 1, durationMs: Date.now() - startedAt });

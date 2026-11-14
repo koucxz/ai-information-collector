@@ -441,6 +441,12 @@ button { cursor: pointer; }
 .operations-heading h1 { margin: 0; color: #182230; font-size: 26px; font-weight: 650; }
 .operations-heading p { margin: 7px 0 0; color: #7b8798; font-size: 12px; }
 .operation-card { max-width: 1180px; margin: 0 auto 18px; }
+.ai-usage { display: grid; gap: 10px; }
+.ai-usage-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #475467; font-size: 12px; }
+.ai-usage-facts strong { color: #101828; font-size: 13px; }
+.ai-usage-note { margin: 0; color: #667085; font-size: 12px; line-height: 1.6; }
+.ai-usage-empty { color: #667085; font-size: 12px; }
+
 .operations-view > .ant-table-wrapper { max-width: 1180px; margin: 0 auto; background: #fff; }
 .restore-button { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; border: 1px solid #d8dee7; border-radius: 6px; color: #344054; background: #fff; cursor: pointer; }
 .restore-button:hover { color: #16734a; border-color: #9fc6ad; }

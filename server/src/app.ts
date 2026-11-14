@@ -7,6 +7,7 @@ import { collectionRouter } from './modules/collection/collection.routes.js';
 import { informationRouter } from './modules/collection/information.routes.js';
 import { historyRouter } from './modules/collection/history.routes.js';
 import { analysisRouter } from './modules/analysis/analysis.routes.js';
+import { aiTokenUsage } from './modules/analysis/ai-budget.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { eventRouter } from './modules/events/event.routes.js';
 import { dataRouter } from './modules/data/data.routes.js';
@@ -64,6 +65,23 @@ app.use('/api/information', analysisRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/events', eventRouter);
 app.use('/api/data', dataRouter);
+
+// 今日 AI 用量：请求数和 token 数各有一条上限，页面直接展示，省得去翻数据库
+app.get('/api/ai/usage', (_request, response) => {
+  const used = aiTokenUsage.used();
+  const limit = aiTokenUsage.limit();
+  response.json({
+    data: {
+      day: aiTokenUsage.day(),
+      tokens: used,
+      tokenLimit: limit,
+      remaining: Math.max(0, limit - used),
+      requests: aiTokenUsage.requests(),
+      requestLimit: env.AI_DAILY_LIMIT,
+      model: env.AI_MODEL
+    }
+  });
+});
 
 app.use((_request, response) => {
   response.status(404).json({ error: '接口不存在' });
