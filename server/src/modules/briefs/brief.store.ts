@@ -20,5 +20,9 @@ export const briefStore = {
   update(id: string, version: number, document: BriefDocument) {
     const result = db.prepare('UPDATE editorial_briefs SET document_json = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?').run(JSON.stringify(document), new Date().toISOString(), id, version);
     return result.changes ? this.find(id) : undefined;
+  },
+  /** 删除是硬删除，归档与否都能删；返回是否真的删掉了一行。 */
+  delete(id: string) {
+    return db.prepare('DELETE FROM editorial_briefs WHERE id = ?').run(id).changes > 0;
   }
 };

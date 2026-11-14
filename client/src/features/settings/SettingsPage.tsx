@@ -40,7 +40,7 @@ export function SettingsPage(props: SettingsPageProps) {
             );
           })}
         </nav>
-        <p className="settings-menu-foot">仅管理员可见 · 数据保存在本地</p>
+        <p className="settings-menu-foot">数据保存在本地数据库，随时可导出</p>
       </aside>
       <section className="settings-content">
         {props.view === 'manage' ? (

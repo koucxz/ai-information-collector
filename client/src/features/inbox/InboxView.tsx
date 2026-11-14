@@ -1,5 +1,5 @@
 import { Button, Checkbox, Empty, Input, Pagination, Segmented, Skeleton, Tag, Tooltip } from 'antd';
-import { Bookmark, BookmarkCheck, Check, Copy, ExternalLink, EyeOff, FilePlus2, Search, ThumbsUp } from 'lucide-react';
+import { ArrowRight, Bookmark, BookmarkCheck, Check, EyeOff, FilePlus2, Search } from 'lucide-react';
 import { originalUrl } from '../../shared/links';
 import { formatRelativeTime } from '../../shared/format';
 import type {
@@ -50,7 +50,7 @@ export function InboxView(props: InboxViewProps) {
     <section className="feed-column">
       <div className="page-heading">
         <div>
-          <p>当前 {props.overview.all} 条信息 · {props.overview.unread} 条未读 · 按主题自动打标</p>
+          <p>当前 {props.overview.all} 条信息 · {props.overview.unread} 条未读</p>
           <h1>信息流</h1>
         </div>
         <Segmented
@@ -79,11 +79,6 @@ export function InboxView(props: InboxViewProps) {
             value={props.searchTerm}
             onChange={(event) => props.onSearchChange(event.target.value)}
           />
-          <select aria-label="按主题筛选" value={props.topicFilter} onChange={(event) => props.onTopicChange(event.target.value)}>
-            <option value="">全部主题</option>
-            {props.topicFilter === '__none__' && <option value="__none__">未分类</option>}
-            {props.topics.map((topic) => <option value={topic.id} key={topic.id}>{topic.name}</option>)}
-          </select>
           <select aria-label="按来源筛选" value={props.sourceFilter} onChange={(event) => props.onSourceChange(event.target.value)}>
             <option value="">全部来源</option>
             {props.sources.map((source) => <option value={source.id} key={source.id}>{source.name}</option>)}
@@ -140,13 +135,15 @@ export function InboxView(props: InboxViewProps) {
                     : <Tag>未分类</Tag>}
                 </div>
                 <div className="feed-actions">
-                  <Tooltip title={item.isSaved ? '从收藏夹移除' : '加入收藏夹'}>
-                    <Button aria-label={item.isSaved ? '取消收藏' : '加入收藏夹'} type="text" size="small" className={item.isSaved ? 'selected' : ''} icon={item.isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />} onClick={() => props.onToggleSave(item)} />
+                  <Tooltip title={item.isSaved ? '从收藏夹移除' : '收藏到收藏夹'}>
+                    <Button aria-label={item.isSaved ? '取消收藏' : '收藏'} type="text" size="small" className={item.isSaved ? 'selected' : ''} icon={item.isSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} onClick={() => props.onToggleSave(item)} />
                   </Tooltip>
-                  {originalUrl(item.url) ? <a className="original-link" href={originalUrl(item.url)} target="_blank" rel="noopener noreferrer">查看原文 <ExternalLink size={12} /></a> : <span>原文链接缺失</span>}
-                  <Tooltip title="有用"><Button aria-label="标记有用" type="text" size="small" className={item.feedback === 'helpful' ? 'selected' : ''} icon={<ThumbsUp size={13} />} onClick={() => props.onFeedback(item, 'helpful')} /></Tooltip>
-                  <Tooltip title="无关"><Button aria-label="标记无关" type="text" size="small" className={item.feedback === 'irrelevant' ? 'selected' : ''} icon={<EyeOff size={13} />} onClick={() => props.onFeedback(item, 'irrelevant')} /></Tooltip>
-                  <Tooltip title="重复"><Button aria-label="标记重复" type="text" size="small" className={item.feedback === 'duplicate' ? 'selected' : ''} icon={<Copy size={13} />} onClick={() => props.onFeedback(item, 'duplicate')} /></Tooltip>
+                  <Tooltip title="无关，少推荐这类">
+                    <Button aria-label="标记无关" type="text" size="small" className={item.feedback === 'irrelevant' ? 'selected' : ''} icon={<EyeOff size={13} />} onClick={() => props.onFeedback(item, 'irrelevant')} />
+                  </Tooltip>
+                  {originalUrl(item.url)
+                    ? <Tooltip title="查看原文"><a className="original-arrow" aria-label="查看原文" href={originalUrl(item.url)} target="_blank" rel="noopener noreferrer"><ArrowRight size={15} /></a></Tooltip>
+                    : <Tooltip title="原文链接缺失"><span className="original-missing">链接缺失</span></Tooltip>}
                 </div>
               </div>
             </div>

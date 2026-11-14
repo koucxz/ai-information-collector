@@ -26,7 +26,7 @@ SignalDock 是一个面向个人使用的信息收集与持续监测平台。设
 - 支持 JSON/CSV 导出以及完整备份恢复
 - 选择2–20条线索综合提炼选题，编辑提纲、参考来源与待核验问题
 - 行动清单支持计划日期、进度保存、完成归档及恢复，选题可复制和导出 Markdown
-- 管理员会话可撤销，API 与 Socket 均鉴权，AI 每日额度持久化
+- 登录会话可撤销，API 与 Socket 均鉴权，AI 每日额度持久化
 
 ## 工作流程
 
@@ -102,7 +102,7 @@ npm install
 npm run dev
 ```
 
-启动前在 `server/.env` 显式填写 `ADMIN_PASSWORD`，保留指定密码的结尾标点。浏览器访问 `http://localhost:5173`，使用管理员用户名（默认 `admin`）与该密码登录。不配置外部密钥也可以使用本地测试数据和本地分析规则。
+启动前在 `server/.env` 显式填写 `ADMIN_PASSWORD`，保留指定密码的结尾标点。浏览器访问 `http://localhost:5173`，使用账号（默认 `admin`）与该密码登录。不配置外部密钥也可以使用本地测试数据和本地分析规则。
 
 ### 环境变量
 
@@ -114,7 +114,7 @@ AI_API_KEY=
 AI_MODEL=Qwen/Qwen3-8B
 GITHUB_TOKEN=
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=填写你的完整管理员密码
+ADMIN_PASSWORD=填写你的密码
 SESSION_SECRET=请替换为随机长字符串
 TRUST_PROXY=false
 COLLECTION_SCHEDULE_ENABLED=false
@@ -138,8 +138,8 @@ Docker 部署前必须在仓库根目录 `.env` 显式设置 `ADMIN_PASSWORD`、
 | 接口 | 说明 |
 | --- | --- |
 | `GET /api/health` | 服务状态 |
-| `POST /api/auth/login` | 管理员登录 |
-| `POST /api/auth/logout` | 管理员退出 |
+| `POST /api/auth/login` | 登录 |
+| `POST /api/auth/logout` | 退出登录 |
 | `GET /api/topics` | 关注主题 |
 | `GET /api/collect/sources` | 可用信息源 |
 | `POST /api/collect/run` | 执行完整采集流程 |

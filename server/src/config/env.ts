@@ -12,10 +12,10 @@ const envSchema = z.object({
   AI_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('Qwen/Qwen3-8B'),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
-  AI_WRITER_TIMEOUT_MS: z.coerce.number().int().positive().default(150000),
+  AI_WRITER_TIMEOUT_MS: z.coerce.number().int().positive().default(240000),
   AI_WRITER_MAX_TOKENS: z.coerce.number().int().positive().default(12000),
   // 首轮超过这个时长就不再重写：模型单次要一两分钟，第二轮会让整篇稿子拖到几分钟
-  AI_WRITER_RETRY_MS: z.coerce.number().int().positive().default(90000),
+  AI_WRITER_RETRY_MS: z.coerce.number().int().positive().default(120000),
   AI_MAX_RETRIES: z.coerce.number().int().min(0).max(4).default(2),
   AI_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(3),
   AI_DAILY_LIMIT: z.coerce.number().int().min(1).max(100000).default(300),

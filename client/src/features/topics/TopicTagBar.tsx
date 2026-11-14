@@ -1,4 +1,3 @@
-import { Settings2 } from 'lucide-react';
 import type { Topic } from '../../shared/types';
 
 const MAX_TOPICS = 10;
@@ -52,9 +51,6 @@ export function TopicTagBar(props: TopicTagBarProps) {
           title="查看没有命中任何主题的信息"
         >
           未分类 <em>{props.unclassifiedCount}</em>
-        </button>
-        <button className="topic-tag-manage" onClick={props.onManage} aria-label="管理关注主题" title="管理关注主题">
-          <Settings2 size={12} />管理
         </button>
       </div>
     </div>

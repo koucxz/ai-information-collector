@@ -42,6 +42,12 @@ export type BriefDocument = Omit<z.infer<typeof draftSchema>, 'tasks'> & {
   provider: 'ai' | 'fallback';
   archived: boolean;
   content?: string;
+  /** 后台写稿中：页面据此轮询，写完自动填正文 */
+  writing?: boolean;
+  /** 写稿结果提示：模型不可用或失败时给用户一句话说明 */
+  writeNote?: string;
+  /** 可直接当社媒文案的一两句摘要 */
+  digest?: string;
   status?: BriefStatus;
   publishedAt?: string;
   signal?: BriefSignal;

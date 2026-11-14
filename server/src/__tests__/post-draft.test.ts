@@ -12,6 +12,17 @@ beforeEach(() => db.exec(`
   DELETE FROM information_items; DELETE FROM keywords; DELETE FROM topics;
 `));
 
+/** 后台写稿是异步的：轮询到 writing 结束再断言正文。 */
+const waitForDraft = async (id: string) => {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const response = await request(app).get('/api/briefs/' + id);
+    const draft = response.body.data as Brief;
+    if (!draft.writing) return draft;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('等写稿超时');
+};
+
 describe('文章草稿（收藏素材 → 编辑器 → 发布侧栏）', () => {
   it('用收藏线索新建草稿会带上原文与主题标签，正文和标签可保存', async () => {
     const topic = await request(app).post('/api/topics').send({ name: 'AI 编程' });
@@ -24,9 +35,14 @@ describe('文章草稿（收藏素材 → 编辑器 → 发布侧栏）', () => 
 
     const created = await request(app).post('/api/briefs').send({ itemIds: ids });
     expect(created.status).toBe(201);
-    const brief = created.body.data as Brief;
+    // 建稿接口立刻返回，正文由后台任务写完；先确认页面拿到的是「写稿中」状态
+    expect((created.body.data as Brief).writing).toBe(true);
+    const brief = await waitForDraft(created.body.data.id);
     expect(brief.status).toBe('draft');
-    expect(brief.content).toBe('');
+    // 写完之后是一篇可读的整理稿，不再是空正文
+    expect(brief.content?.length ?? 0).toBeGreaterThan(80);
+    expect(brief.content).toContain('更新说明');
+    expect(brief.content).toContain('https://example.com/post-1');
     expect(brief.sources).toHaveLength(2);
     expect(brief.tags).toContain('AI 编程');
     expect(brief.tasks.length).toBeGreaterThan(0);

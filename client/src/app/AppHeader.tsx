@@ -40,7 +40,7 @@ export function AppHeader(props: AppHeaderProps) {
         <span className="brand-mark"><Radar size={18} /></span>
         <strong>SignalDock</strong>
       </div>
-      <span className="workspace-private">个人工作区</span>
+      <span className="workspace-private">信息工作台</span>
       <nav className="workspace-nav" aria-label="主导航">
         {NAV.map(({ view, label, hint, icon: Icon }) => <button
           key={view}
@@ -51,10 +51,6 @@ export function AppHeader(props: AppHeaderProps) {
           <span><strong>{label}</strong><small>{hint}</small></span>
         </button>)}
       </nav>
-      <div className="workspace-sidebar-foot">
-        <span>按主题自动打标</span>
-        <span>只在你点击时采集</span>
-      </div>
     </aside><header className="topbar workspace-topbar">
       <span className="workspace-breadcrumb">{breadcrumb}</span>
       <div className="top-actions">
@@ -66,7 +62,7 @@ export function AppHeader(props: AppHeaderProps) {
             <Button className="square-button" aria-label="今日摘要" icon={<Bell size={15} />} onClick={props.onLoadDigest} />
           </Tooltip>
         </Badge>
-        <Tooltip title="当前仅手动采集；未启用定时计划。点击后按所选来源抓取一次">
+        <Tooltip title="每天 20:00 自动采集一轮；点击可立即按所选来源抓取一次">
           <Button
             type="primary"
             icon={<RefreshCw size={14} className={collecting ? 'spin' : ''} />}
@@ -76,7 +72,9 @@ export function AppHeader(props: AppHeaderProps) {
             立即采集
           </Button>
         </Tooltip>
-        <Button className="topbar-logout" aria-label="退出登录" icon={<LogOut size={15} />} onClick={props.onLogout}>退出登录</Button>
+        <Tooltip title="退出登录">
+          <Button className="square-button topbar-logout" aria-label="退出登录" icon={<LogOut size={15} />} onClick={props.onLogout} />
+        </Tooltip>
       </div>
     </header></>
   );

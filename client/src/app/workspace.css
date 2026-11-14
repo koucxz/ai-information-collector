@@ -12,7 +12,6 @@
 .workspace-nav small { color: #98a2b3; font-size: 10px; line-height: 1.35; white-space: nowrap; }
 .workspace-nav button[aria-current=page] { background: #e7f2eb; color: #16734a; }
 .workspace-nav button[aria-current=page] small { color: #5a8b70; }
-.workspace-sidebar-foot { margin-top: auto; display: grid; gap: 4px; color: #a0a9b6; font-size: 10px; line-height: 1.6; }
 .topbar-logout { color: #667085; }
 .workspace-topbar { grid-column: 2; padding: 17px 30px; gap: 18px; flex-wrap: wrap; }
 .workspace-breadcrumb { color: #667085; font-size: 12px; }
@@ -42,7 +41,7 @@
   .workspace-private { display: none; }
   .workspace-nav { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
   .workspace-nav button { padding: 10px 4px; justify-content: center; gap: 6px; font-size: 12px; }
-  .workspace-nav small, .workspace-sidebar-foot { display: none; }
+  .workspace-nav small { display: none; }
   .topbar-logout { padding-inline: 8px; }
   .workspace-topbar { padding: 14px 16px; }
   .workspace-breadcrumb { flex: 1; }
@@ -69,8 +68,6 @@
 .topic-tag.is-active em { opacity: .85; }
 .topic-tag.is-active:hover { border-color: #12613e; color: #fff; background: #12613e; }
 .topic-tag-more { color: #8a94a4; font-size: 11px; }
-.topic-tag-manage { display: inline-flex; align-items: center; gap: 4px; height: 25px; border: 0; border-radius: 5px; padding: 0 8px; color: #667085; background: transparent; font-size: 11px; }
-.topic-tag-manage:hover { color: #16734a; background: #eaf3ed; }
 
 /* 独立设置页：左侧菜单平铺 */
 .settings-layout { grid-column: 2; display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 118px); min-width: 0; background: #f7f8fa; }

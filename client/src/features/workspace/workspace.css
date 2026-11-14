@@ -43,11 +43,13 @@
 .saved-row a:hover { color: #16734a; }
 .saved-row p { margin: 0; color: #667085; font-size: 12px; line-height: 1.75; }
 
-/* 文章：列表 + 编辑器 + 发布侧栏 */
-.posts-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr) 272px; align-items: start; gap: 16px; }
-.posts-library, .post-editor, .publish-panel { min-width: 0; border: 1px solid #e4e8ed; border-radius: 9px; background: #fff; }
+/* 文章：列表 + 编辑器（正文与 Markdown 预览） */
+.posts-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; gap: 16px; }
+.posts-library, .post-editor { min-width: 0; border: 1px solid #e4e8ed; border-radius: 9px; background: #fff; }
 .posts-library { display: grid; gap: 12px; padding: 14px; }
 .posts-library-list { display: grid; gap: 7px; max-height: 660px; overflow-y: auto; }
+/* 列表窄，四档状态要能完整显示 */
+.posts-library .ant-segmented-item-label { padding-inline: 4px; font-size: 11px; }
 .post-card { display: grid; gap: 7px; width: 100%; padding: 11px 12px; border: 1px solid #e9edf1; border-radius: 7px; background: #fff; text-align: left; }
 .post-card:hover { border-color: #9fc6ad; }
 .post-card.is-current { border-color: #16734a; background: #f2f8f4; }
@@ -69,9 +71,36 @@
 .post-tags > span { margin-right: 3px; }
 .post-tags .ant-tag { margin: 0; }
 .post-tag-input { width: 150px; }
-.post-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #edf0f3; padding-top: 12px; color: #98a2b3; font-size: 11px; }
+.post-digest { display: flex; gap: 8px; margin: 0 0 10px; padding: 9px 12px; border-left: 3px solid #16734a; border-radius: 0 6px 6px 0; color: #344054; background: #f4f8f5; font-size: 12px; line-height: 1.7; }
+.post-digest span { flex: none; color: #16734a; font-weight: 600; }
+.post-write-note { margin: 0 0 10px; color: #b54708; font-size: 12px; line-height: 1.6; }
+.post-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid #edf0f3; padding-top: 12px; color: #98a2b3; font-size: 11px; }
+.post-mode { display: flex; align-items: center; gap: 10px; }
+.post-mode-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .post-content { border: 1px solid #e9edf1; border-radius: 7px; padding: 14px 16px; font-size: 13px; line-height: 1.95; }
 .post-content textarea { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; }
+.post-preview { min-height: 420px; max-height: 780px; overflow-y: auto; border: 1px solid #e9edf1; border-radius: 7px; padding: 20px 24px; background: #fff; }
+
+/* 预览区排版：和导出的 Markdown 观感一致 */
+.markdown-body { color: #182230; font-size: 13.5px; line-height: 1.95; overflow-wrap: anywhere; }
+.markdown-body > *:first-child { margin-top: 0; }
+.markdown-body h1 { margin: 22px 0 12px; font-size: 21px; font-weight: 650; line-height: 1.45; }
+.markdown-body h2 { margin: 22px 0 10px; font-size: 17px; font-weight: 650; line-height: 1.5; }
+.markdown-body h3 { margin: 18px 0 8px; font-size: 15px; font-weight: 650; }
+.markdown-body h4 { margin: 16px 0 8px; font-size: 13.5px; font-weight: 650; }
+.markdown-body p { margin: 0 0 12px; }
+.markdown-body ul, .markdown-body ol { margin: 0 0 12px; padding-left: 22px; }
+.markdown-body li { margin: 5px 0; }
+.markdown-body li::marker { color: #9aa5b3; }
+.markdown-body blockquote { margin: 0 0 14px; padding: 8px 14px; border-left: 3px solid #cfe3d6; background: #f6faf7; color: #4a5563; }
+.markdown-body blockquote p { margin: 4px 0; }
+.markdown-body code { padding: 1px 5px; border-radius: 4px; background: #eef1f4; color: #1f4d38; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.markdown-body pre { margin: 0 0 14px; padding: 12px 14px; border-radius: 7px; background: #f5f7f9; overflow-x: auto; }
+.markdown-body pre code { padding: 0; background: transparent; color: #26333f; font-size: 12px; line-height: 1.7; }
+.markdown-body a { color: #16734a; text-decoration: underline; text-underline-offset: 2px; }
+.markdown-body strong { font-weight: 650; }
+.markdown-body hr { margin: 18px 0; border: 0; border-top: 1px solid #e8ecf1; }
+.markdown-empty { margin: 40px 0; color: #98a2b3; font-size: 12px; text-align: center; }
 .post-sources { border-top: 1px solid #edf0f3; padding-top: 14px; }
 .post-sources h3 { margin: 0 0 10px; font-size: 13px; font-weight: 650; }
 .post-sources ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
@@ -80,37 +109,17 @@
 .post-sources a { color: #16734a; }
 .post-sources p { color: #98a2b3; font-size: 12px; }
 
-.publish-panel { padding: 17px 16px 20px; }
-.publish-panel h2 { margin: 0; font-size: 15px; font-weight: 650; }
-.publish-status { margin: 6px 0 18px; color: #667085; font-size: 11px; }
-.publish-checks { border-top: 1px solid #edf0f3; border-bottom: 1px solid #edf0f3; padding: 15px 0; }
-.publish-checks h3 { margin: 0; font-size: 12px; font-weight: 650; }
-.publish-checks > small { display: block; margin: 5px 0 12px; color: #98a2b3; font-size: 10px; line-height: 1.6; }
-.publish-checks ul { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
-.publish-checks li { color: #667085; font-size: 11px; line-height: 1.6; }
-.publish-checks li.is-ok { color: #16734a; }
-.publish-checks .check-manual li { padding-left: 1px; }
-.publish-checks .ant-checkbox-wrapper { color: #667085; font-size: 11px; line-height: 1.6; }
-.publish-checks .is-done .ant-checkbox-wrapper { color: #98a2b3; text-decoration: line-through; }
-.check-add { margin-top: 4px; }
-.publish-actions { display: grid; gap: 8px; margin-top: 16px; }
-.publish-note { margin: 14px 0 0; color: #98a2b3; font-size: 10px; line-height: 1.7; }
-
 @media(max-width: 1240px) {
   .posts-layout { grid-template-columns: 210px minmax(0, 1fr); }
-  .publish-panel { grid-column: 1 / -1; }
-  .publish-checks ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media(max-width: 900px) {
   .workspace-view { padding: 22px 18px 48px; }
   .posts-layout { grid-template-columns: minmax(0, 1fr); }
   .posts-library-list { max-height: 240px; }
-  .publish-panel { grid-column: auto; }
 }
 @media(max-width: 760px) {
   .view-heading h1 { font-size: 22px; }
   .saved-row { grid-template-columns: 22px minmax(0, 1fr); }
   .saved-row > .ant-btn { grid-column: 2; justify-self: start; }
-  .publish-checks ul { grid-template-columns: minmax(0, 1fr); }
   .post-editor { padding: 14px; }
 }
