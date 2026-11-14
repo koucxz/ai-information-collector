@@ -87,6 +87,25 @@ describe('Beacon 风格选题推荐与成稿状态', () => {
     expect(brief.sources).toHaveLength(12);
   });
 
+  it('复用既有选题时会同步最新推荐信号，并保留已编辑的标题', async () => {
+    for (let index = 0; index < 15; index += 1) insert('juejin', 'Docker 部署', `Docker 部署实践 ${index}`, 1 + index);
+    for (let index = 0; index < 3; index += 1) insert('kr36', 'Docker 部署', `容器化部署观察 ${index}`, 30 + index);
+    const candidate = (await request(app).get('/api/briefs/candidates')).body.data
+      .find((item: { keyword: string }) => item.keyword === 'Docker 部署');
+    // 手动勾线索生成时信号只覆盖取样的 12 条
+    const initial = await request(app).post('/api/briefs/generate').send({ itemIds: candidate.itemIds });
+    expect(initial.body.data[0].signal.clues).toBe(12);
+    const edited = await request(app).patch('/api/briefs/' + initial.body.data[0].id)
+      .send({ version: initial.body.data[0].version, title: '我改过的标题' });
+    expect(edited.status).toBe(200);
+    // 从推荐卡再次开写：同 key 复用，信号同步成全量 18 条，标题不丢
+    const reused = await request(app).post('/api/briefs/generate').send({ itemIds: candidate.itemIds, candidateId: candidate.id });
+    expect(reused.body.reused).toBe(true);
+    expect(reused.body.data[0].signal.clues).toBe(18);
+    expect(reused.body.data[0].signal.score).toBe(candidate.score);
+    expect(reused.body.data[0].title).toBe('我改过的标题');
+  });
+
   it('候选里已开写过的线索会被标出来', async () => {
     const first = insert('juejin', '前端框架', '框架 A 更新', 2);
     const second = insert('kr36', '前端框架', '框架 B 对比', 4);

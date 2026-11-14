@@ -78,7 +78,21 @@ export const generateBriefs = async (ids: string[], candidateId?: string) => {
   const valid = items.filter(item => !!item);
   const key = createHash('sha256').update(valid.map(item => `${item.id}:${item.fingerprint}`).sort().join('|')).digest('hex');
   const existing = briefStore.byGeneration(key);
-  if (existing.length) return { data: existing, reused: true };
+  if (existing.length) {
+    // 推荐规则迭代后，已开写的选题可能还带着旧评分；复用时同步最新信号，避免推荐卡与方案分数对不上。
+    const signal = candidateId ? findCandidateSignal(candidateId) : undefined;
+    if (signal) {
+      let changed = false;
+      for (const brief of existing) {
+        if (brief.signal?.clues === signal.clues && brief.signal?.score === signal.score) continue;
+        const { id: _id, version: _version, createdAt: _createdAt, updatedAt: _updatedAt, ...document } = brief;
+        briefStore.update(brief.id, brief.version, { ...document, signal });
+        changed = true;
+      }
+      if (changed) return { data: briefStore.byGeneration(key), reused: true };
+    }
+    return { data: existing, reused: true };
+  }
   if (pending.has(key)) return pending.get(key)!;
   if (pending.size >= 1) throw new BriefError(409, '已有选题正在生成，请稍后重试');
   const sources = valid.map(item => ({ id: item.id, title: item.title.slice(0, 200), summary: (item.summary || item.content).slice(0, 1500), url: item.url, sourceName: item.sourceName }));
