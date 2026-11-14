@@ -238,7 +238,7 @@ def render(rows, tele):
         parts.append('<div><b>按入口</b><br>' + pills(by_origin, {}) + '</div></div>')
         parts.append('<table><thead><tr><th>时间</th><th>功能</th><th>原因</th><th>耗时</th><th>入口</th></tr></thead><tbody>')
         for t in sorted(tele, key=lambda x: x.get('ts', ''), reverse=True)[:15]:
-            ts = t.get('ts', '')[:19].replace('T', ' ')
+            ts = t['_dt'].strftime('%Y-%m-%d %H:%M:%S') if '_dt' in t else t.get('ts', '')[:19].replace('T', ' ')
             parts.append('<tr><td>' + ts + '</td><td>' + str(t.get('feature', '')) + '</td><td class="warn-txt">' +
                          reason_labels.get(t.get('reason', ''), t.get('reason', '')) + '</td><td>' +
                          str(t.get('ms', '-')) + ' ms</td><td>' + str(t.get('origin', '')) + '</td></tr>')
