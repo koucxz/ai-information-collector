@@ -2,8 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import type { SearchResult } from './collection.types.js';
 import { dedupeUrl, normalizeUrl } from './normalize.js';
-import { normalizeWords } from './topic-filter.js';
-import { allTopicQueryWords, tagsForItems, retagItem, topicRules, type StoredTopicTag } from './topic-tagger.js';
+import { tagsForItems, retagItem, topicRules, type StoredTopicTag } from './topic-tagger.js';
 
 export type FeedbackValue = 'helpful' | 'irrelevant' | 'duplicate';
 export type StoredInformation = SearchResult & { id: string; eventKey: string; isRead: boolean; isSaved: boolean; isArchived: boolean; relevanceScore: number; importanceScore: number; aiStatus: string; analysisSummary: string; analysisReason: string; feedback: FeedbackValue | null; personalizedScore: number };
@@ -11,29 +10,17 @@ export type FeedOptions = { source?: string; unread?: boolean; saved?: boolean; 
 export type FeedOverview = { all: number; unread: number; relevant: number; globalAll: number; globalUnread: number; topicCounts: Record<string, number>; unclassified: number };
 
 /**
- * 主题筛选优先用打标表（标题 / 摘要 / 正文命中），同时保留采集查询词兜底，
- * 这样主题改名、关键词增删后历史信息不会凭空消失。「未分类」用于找出一条主题都没命中的信息。
+ * 主题筛选与「未分类」完全以打标表为准：采集查询词只是打标时的加分项，
+ * 不再直接当分类用，避免搜索噪声混进主题、主题计数和列表对不上。
  */
-const topicCondition = (words?: string[], topicId?: string, unclassified?: boolean) => {
-  const placeholders = (values: string[]) => values.map(() => '?').join(',');
-  if (unclassified) {
-    const allWords = normalizeWords(allTopicQueryWords());
-    const noTags = 'NOT EXISTS (SELECT 1 FROM information_item_topics t WHERE t.item_id = information_items.id)';
-    if (!allWords.length) return { sql: noTags, params: [] as string[] };
-    return { sql: `${noTags} AND LOWER(information_items.keyword) NOT IN (${placeholders(allWords)})`, params: allWords };
-  }
-  if (topicId) {
-    const normalized = normalizeWords(words ?? []);
-    const fallback = normalized.length ? ` OR LOWER(information_items.keyword) IN (${placeholders(normalized)})` : '';
-    return {
-      sql: `(EXISTS (SELECT 1 FROM information_item_topics t WHERE t.item_id = information_items.id AND t.topic_id = ?)${fallback})`,
-      params: [topicId, ...normalized]
-    };
-  }
-  if (words === undefined) return { sql: '', params: [] as string[] };
-  const normalized = normalizeWords(words);
-  if (!normalized.length) return { sql: '1 = 0', params: [] as string[] };
-  return { sql: `LOWER(information_items.keyword) IN (${placeholders(normalized)})`, params: normalized };
+const topicCondition = (_words?: string[], topicId?: string, unclassified?: boolean) => {
+  const noTags = 'NOT EXISTS (SELECT 1 FROM information_item_topics t WHERE t.item_id = information_items.id)';
+  if (unclassified) return { sql: noTags, params: [] as string[] };
+  if (topicId) return {
+    sql: 'EXISTS (SELECT 1 FROM information_item_topics t WHERE t.item_id = information_items.id AND t.topic_id = ?)',
+    params: [topicId]
+  };
+  return { sql: '', params: [] as string[] };
 };
 
 const canonicalTitle = (title: string) => title.toLocaleLowerCase()
@@ -168,8 +155,6 @@ export const informationStore = {
     const rules = topicRules();
     const tagRows = db.prepare(`SELECT t.item_id AS itemId, t.topic_id AS topicId FROM information_item_topics t
       JOIN information_items i ON i.id = t.item_id WHERE i.is_archived = 0`).all() as unknown as Array<{ itemId: string; topicId: string }>;
-    const active = db.prepare('SELECT id, LOWER(keyword) AS word FROM information_items WHERE is_archived = 0').all() as unknown as Array<{ id: string; word: string }>;
-    const wordSets = rules.map((rule) => new Set(normalizeWords(rule.queryWords)));
     const topicCounts: Record<string, number> = Object.fromEntries(rules.map((rule) => [rule.id, 0]));
     const taggedIds = new Set<string>();
     for (const tag of tagRows) {
@@ -177,16 +162,7 @@ export const informationStore = {
       topicCounts[tag.topicId] += 1;
       taggedIds.add(tag.itemId);
     }
-    // 尚未重新打标的历史数据仍按采集查询词兜底，避免主题标签里的条数突然变少
-    for (const item of active) {
-      if (taggedIds.has(item.id)) continue;
-      const word = normalizeWords([item.word])[0] ?? '';
-      const index = wordSets.findIndex((set) => set.has(word));
-      if (index < 0) continue;
-      topicCounts[rules[index].id] += 1;
-      taggedIds.add(item.id);
-    }
-    return { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant), globalAll: Number(globalRow.total), globalUnread: Number(globalRow.unread), topicCounts, unclassified: Math.max(0, active.length - taggedIds.size) };
+    return { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant), globalAll: Number(globalRow.total), globalUnread: Number(globalRow.unread), topicCounts, unclassified: Math.max(0, Number(globalRow.total) - taggedIds.size) };
   },
   findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   findByResult(item: Pick<SearchResult, 'source' | 'url' | 'fingerprint'>) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.source = ? AND information_items.dedupe_key = ?`).get(item.source, dedupeKeyFor(item)) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },

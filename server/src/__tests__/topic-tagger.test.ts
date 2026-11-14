@@ -44,7 +44,8 @@ describe('主题打标', () => {
     const summaryHit = tagText({ title: '无关标题', summary: 'Cursor 更新说明', content: '', keyword: '' }, rules)[0];
     expect(titleHit.score).toBeGreaterThan(summaryHit.score);
     expect(tagText({ title: '无关标题', summary: '', content: '里面提到 Cursor', keyword: '' }, rules)).toEqual([]);
-    expect(tagText({ title: '无关标题', summary: '', content: '历史数据里提到 Cursor', keyword: 'cursor' }, rules)[0].id).toBe('coding');
+    expect(tagText({ title: '历史标题', summary: '摘要里提到 Cursor', content: '', keyword: 'cursor' }, rules)[0].id).toBe('coding');
+    expect(tagText({ title: '无关标题', summary: '', content: '只有正文提到 Cursor', keyword: 'cursor' }, rules)).toEqual([]);
   });
 
   it('采集词命中但内容与主题无关的噪声不会被误归类', () => {
