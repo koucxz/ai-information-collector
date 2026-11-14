@@ -6,7 +6,7 @@ import { informationStore } from '../collection/information.store.js';
 import { draftSchema, type Brief, type BriefDocument, type SourceSnapshot } from './brief.schemas.js';
 import { briefStore } from './brief.store.js';
 import { withAiBudget } from '../analysis/ai-budget.js';
-import { buildSignal, findCandidateSignal, type BriefSignal } from './candidates.js';
+import { buildSignal, findCandidate, signalOfCandidate, type BriefSignal } from './candidates.js';
 
 export class BriefError extends Error { constructor(public status: number, message: string) { super(message); } }
 const pending = new Map<string, Promise<{ data: Brief[]; reused: boolean }>>();
@@ -33,7 +33,7 @@ export const validateModelDrafts = (input: unknown, sources: SourceSnapshot[]): 
   });
 };
 
-async function generate(key: string, sources: SourceSnapshot[], label: string, signal: BriefSignal) {
+async function generate(key: string, sources: SourceSnapshot[], label: string, signal: BriefSignal, suggestedTitle?: string) {
   // Reserve a persistent daily allowance before any external request. No retries amplify cost.
   const day = new Date().toISOString().slice(0, 10);
   const reserved = db.prepare('INSERT INTO generation_usage (day, count) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count').get(day, env.BRIEF_DAILY_LIMIT);
@@ -64,6 +64,7 @@ async function generate(key: string, sources: SourceSnapshot[], label: string, s
   // 无论 AI 是否可用，选题都带上可追溯的推荐理由，并进入「待写」状态等待起稿。
   documents = documents.map(document => ({
     ...document,
+    title: suggestedTitle && document.provider === 'fallback' ? suggestedTitle : document.title,
     signal,
     content: '',
     status: 'idea' as const,
@@ -77,16 +78,22 @@ export const generateBriefs = async (ids: string[], candidateId?: string) => {
   if (items.some(item => !item || item.isArchived)) throw new BriefError(400, '部分线索不存在或已归档，请重新选择');
   const valid = items.filter(item => !!item);
   const key = createHash('sha256').update(valid.map(item => `${item.id}:${item.fingerprint}`).sort().join('|')).digest('hex');
+  const candidate = candidateId ? findCandidate(candidateId) : undefined;
   const existing = briefStore.byGeneration(key);
   if (existing.length) {
     // 推荐规则迭代后，已开写的选题可能还带着旧评分；复用时同步最新信号，避免推荐卡与方案分数对不上。
-    const signal = candidateId ? findCandidateSignal(candidateId) : undefined;
-    if (signal) {
+    if (candidate) {
+      const signal = signalOfCandidate(candidate);
       let changed = false;
       for (const brief of existing) {
         if (brief.signal?.clues === signal.clues && brief.signal?.score === signal.score) continue;
         const { id: _id, version: _version, createdAt: _createdAt, updatedAt: _updatedAt, ...document } = brief;
-        briefStore.update(brief.id, brief.version, { ...document, signal });
+        // 只替换从没被人工改过的模板标题，用户自己起的标题一律保留。
+        const untouched = /：有哪些变化，下一步该如何验证？\s*$/.test(brief.title);
+        briefStore.update(brief.id, brief.version, {
+          ...document, signal,
+          title: untouched ? candidate.title.slice(0, 200) : brief.title
+        });
         changed = true;
       }
       if (changed) return { data: briefStore.byGeneration(key), reused: true };
@@ -98,12 +105,12 @@ export const generateBriefs = async (ids: string[], candidateId?: string) => {
   const sources = valid.map(item => ({ id: item.id, title: item.title.slice(0, 200), summary: (item.summary || item.content).slice(0, 1500), url: item.url, sourceName: item.sourceName }));
   const labels = [...new Set(valid.map(item => item.keyword).filter(Boolean))];
   const label = labels.slice(0, 3).join('、') || '本轮关注信息';
-  const signal = (candidateId && findCandidateSignal(candidateId)) || buildSignal(valid.map(item => ({
+  const signal = candidate ? signalOfCandidate(candidate) : buildSignal(valid.map(item => ({
     id: item.id, keyword: item.keyword, source: item.source, sourceName: item.sourceName,
     title: item.title, collectedAt: item.collectedAt, importanceScore: item.importanceScore,
     relevanceScore: item.relevanceScore, eventKey: item.eventKey
   })), label);
-  const job = generate(key, sources, label, signal);
+  const job = generate(key, sources, label, signal, candidate?.title);
   pending.set(key, job);
   try { return await job; } finally { pending.delete(key); }
 };

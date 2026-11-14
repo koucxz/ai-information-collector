@@ -84,6 +84,7 @@ describe('Beacon 风格选题推荐与成稿状态', () => {
     const brief = generated.body.data[0] as Brief;
     expect(brief.signal?.clues).toBe(18);
     expect(brief.signal?.score).toBe(candidate.score);
+    expect(brief.title).toBe(candidate.title);
     expect(brief.sources).toHaveLength(12);
   });
 

@@ -43,7 +43,8 @@ const isReadableTitle = (title: string) => {
   const value = title.trim();
   return value.length >= 8 && value.length <= 60
     && !/^\[?#?\d+\]|CODE-|https?:\/\/|^[{[]/i.test(value)
-    && !/\.js\s*\||at\s+\w+\(|stack trace/i.test(value);
+    && !/\.js\s*\||at\s+\w+\(|stack trace/i.test(value)
+    && !/[\u0400-\u04FF\u0370-\u03FF]/u.test(value);
 };
 const pickAnchor = (items: Array<{ title: string }>, keyword: string) =>
   items.find(item => isReadableTitle(item.title))?.title.trim().replace(/\s+/g, ' ').slice(0, 30)
@@ -161,13 +162,11 @@ export const topicCandidates = () => {
   };
 };
 
-/** 开写时按候选 ID 重算完整信号（只信服务端数据），保证方案里的评分与推荐卡一致。 */
-export const findCandidateSignal = (id: string): BriefSignal | undefined => {
-  const hit = topicCandidates().data.find(candidate => candidate.id === id);
-  if (!hit) return undefined;
-  return {
-    score: hit.score, dimensions: hit.dimensions, why: hit.why, window: hit.window,
-    angle: hit.angle, clues: hit.clues, sources: hit.sources,
-    freshnessHours: hit.freshnessHours, method: hit.method
-  };
-};
+/** 开写时按候选 ID 重算完整信号与建议标题（只信服务端数据），保证方案与推荐卡一致。 */
+export const findCandidate = (id: string): TopicCandidate | undefined =>
+  topicCandidates().data.find(candidate => candidate.id === id);
+export const signalOfCandidate = (hit: TopicCandidate): BriefSignal => ({
+  score: hit.score, dimensions: hit.dimensions, why: hit.why, window: hit.window,
+  angle: hit.angle, clues: hit.clues, sources: hit.sources,
+  freshnessHours: hit.freshnessHours, method: hit.method
+});
