@@ -54,7 +54,8 @@ export const aiTokenUsage = {
   },
   assert(): void {
     if (this.used() >= this.limit()) {
-      throw new Error(`今日 AI token 用量已达上限（${this.limit()}），明天自动恢复；需要继续用可调大 AI_DAILY_TOKEN_LIMIT`);
+      // 带上「额度」二字：调用方靠它判断这是配额问题，不用再重试
+      throw new Error(`今日 AI token 额度已用完（上限 ${this.limit()}），明天自动恢复；需要继续用可调大 AI_DAILY_TOKEN_LIMIT`);
     }
   }
 };
