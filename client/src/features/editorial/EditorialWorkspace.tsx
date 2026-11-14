@@ -94,7 +94,7 @@ function CandidateCard(props: { candidate: TopicCandidate; starting: boolean; on
     </div>
     <ul className="candidate-titles">{c.sampleTitles.slice(0, 2).map(title => <li key={title}>{title}</li>)}</ul>
     <div className="candidate-foot">
-      <span><Tag color={c.angle === 'guide' ? 'blue' : 'purple'}>{c.angle === 'guide' ? '选型指南' : '工程解读'}</Tag>{c.clues} 条线索 · {c.sources} 个来源</span>
+      <span><Tag color={c.angle === 'guide' ? 'blue' : 'purple'}>{c.angle === 'guide' ? '选型指南' : '工程解读'}</Tag>{c.clues} 条线索 · {c.sources} 个来源 · 取最近 {c.itemIds.length} 条开写</span>
       <Button type="primary" size="small" loading={props.starting} disabled={c.used} onClick={() => props.onStart(c)}>
         {c.used ? '已开写' : '按这个选题开写'}
       </Button>

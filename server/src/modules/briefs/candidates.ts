@@ -52,8 +52,8 @@ export const buildSignal = (items: SignalItem[], keyword = ''): BriefSignal => {
   const importance = average('importanceScore');
   const relevance = average('relevanceScore');
   const dimensions: SignalDimension[] = [
-    { key: 'clues', label: '线索量', value: clamp(items.length / 8 * 100), note: `${items.length} 条` },
-    { key: 'sources', label: '跨来源', value: clamp(sourceCount / 4 * 100), note: `${sourceCount} 个来源` },
+    { key: 'clues', label: '线索量', value: clamp(Math.log2(items.length + 1) / Math.log2(80) * 100), note: `${items.length} 条` },
+    { key: 'sources', label: '跨来源', value: clamp(sourceCount / 8 * 100), note: `${sourceCount} 个来源` },
     { key: 'freshness', label: '新鲜度', value: clamp(100 - freshnessHours / 24 * 100), note: `${freshnessHours} 小时前` },
     { key: 'importance', label: '重要性', value: clamp(importance * 100), note: importance.toFixed(2) },
     { key: 'relevance', label: '相关性', value: clamp(relevance * 100), note: relevance.toFixed(2) },
@@ -104,12 +104,13 @@ export const topicCandidates = () => {
     .map(([keyword, items]) => {
       const signal = buildSignal(items, keyword);
       const chosen = items.slice(0, 8);
-      const suffix = signal.angle === 'guide' ? '适用条件与验证步骤' : '实现路径与可复现验证';
+      const angleLabel = signal.angle === 'guide' ? '选型指南' : '工程解读';
+      const anchor = items[0].title.replace(/\s+/g, ' ').slice(0, 30);
       return {
         ...signal,
         id: createHash('sha1').update(`${keyword}|${items[0].id}`).digest('hex').slice(0, 16),
         keyword,
-        title: `${keyword} ${signal.angle === 'guide' ? '选型指南' : '工程解读'}：${items.length} 条新动态里的${suffix}`.slice(0, 160),
+        title: `${keyword} · ${angleLabel}：从「${anchor}」等 ${items.length} 条线索切入`.slice(0, 160),
         headline: items[0].title,
         itemIds: chosen.map(item => item.id),
         sampleTitles: items.slice(0, 3).map(item => item.title),
