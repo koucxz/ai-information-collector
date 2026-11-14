@@ -117,7 +117,11 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
       if (options.signal?.aborted) throw caught;
       if (caught instanceof ApiError) {
         if (caught.status >= 500) state.reason = 'server';
-        if (caught.status < 500 || attempt === retries) throw caught;
+        if (caught.status < 500 || attempt === retries) {
+          // 服务端错误也算「服务连接错误」，同样带上功能名称；4xx 业务错误保留原文
+          if (caught.status >= 500) throw new ApiError(caught.status, `「${feature}」服务返回 ${caught.status}，请稍后重试`);
+          throw caught;
+        }
       } else if (attempt === retries && state.reason !== 'timeout') {
         state.reason = 'network';
       }
