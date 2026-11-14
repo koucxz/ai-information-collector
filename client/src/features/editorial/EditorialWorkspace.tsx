@@ -62,7 +62,7 @@ export function EditorialWorkspace(props: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [libraryFilter, setLibraryFilter] = useState('active');
-  const [taskFilter, setTaskFilter] = useState('todo');
+  const [taskFilter, setTaskFilter] = useState('all');
   const [briefFilter, setBriefFilter] = useState('all');
   const [newTask, setNewTask] = useState('');
   const [newTaskBrief, setNewTaskBrief] = useState('');
@@ -347,7 +347,7 @@ function ActionsView(props: ActionsProps) {
       <div><span>涉及选题</span><strong>{activeBriefs.length}</strong><small>条进行中选题</small></div>
     </div>
     <div className="action-toolbar">
-      <Segmented value={props.taskFilter} onChange={(value) => props.onTaskFilter(String(value))} options={[{ label: '待完成', value: 'todo' }, { label: '已完成', value: 'done' }, { label: '全部', value: 'all' }]} />
+      <Segmented value={props.taskFilter} onChange={(value) => props.onTaskFilter(String(value))} options={[{ label: '全部', value: 'all' }, { label: '待完成', value: 'todo' }, { label: '已完成', value: 'done' }]} />
       <Select aria-label="按选题筛选行动" value={props.briefFilter} onChange={props.onBriefFilter} style={{ width: 240 }} options={[{ value: 'all', label: '全部选题' }, ...props.briefs.map(brief => ({ value: brief.id, label: (brief.archived ? '已归档 · ' : '') + brief.title }))]} />
     </div>
     <div className="action-add">
@@ -355,7 +355,9 @@ function ActionsView(props: ActionsProps) {
       <Select aria-label="行动所属选题" value={props.newTaskBrief || activeBriefs[0]?.id} onChange={props.onNewTaskBrief} style={{ width: 230 }} options={activeBriefs.map(brief => ({ value: brief.id, label: brief.title }))} />
       <Button type="primary" icon={<Plus size={14} />} disabled={!props.newTask.trim() || !activeBriefs.length} onClick={props.onAdd}>添加行动</Button>
     </div>
-    {!visible.length && <Empty description="当前筛选下没有行动" />}
+    {!visible.length && <Empty description="当前筛选下没有行动">
+      <Button onClick={() => { props.onTaskFilter('all'); props.onBriefFilter('all'); }}>查看全部行动</Button>
+    </Empty>}
     {groups.filter(group => group.rows.length).map(group => <section className="action-group" key={group.label}>
       <div className="action-group-head"><h2>{group.label}<span>{group.rows.length}</span></h2><small>{group.hint}</small></div>
       {group.rows.map(row => {
