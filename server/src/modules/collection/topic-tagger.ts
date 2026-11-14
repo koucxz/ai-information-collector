@@ -32,8 +32,15 @@ const clean = cleanForMatch;
 const compact = compactForMatch;
 const unique = (values: string[]) => [...new Set(values.map(clean).filter(Boolean))];
 
-/** 模型名的常见写法：GPT 系列在正文里几乎都写成 ChatGPT，词边界匹配不到。 */
-const termAliases = (term: string) => clean(term) === 'gpt' ? ['chatgpt'] : [];
+/** 模型名 / 技术词的常见写法：GPT 系列在正文里几乎都写成 ChatGPT，Agent 常写成 agentic。 */
+const termAliases = (term: string) => {
+  const lower = clean(term);
+  if (lower === 'gpt') return ['chatgpt'];
+  if (lower === 'agent') return ['agents', 'agentic'];
+  if (lower === 'rag') return ['retrieval augmented generation', 'retrieval-augmented'];
+  if (lower === '大模型') return ['llm', 'large language model'];
+  return [];
+};
 
 export const topicRules = (): TopicRule[] => topicStore.list().map((topic) => ({
   id: topic.id,
@@ -120,7 +127,7 @@ const saveSignature = (value: string) => {
  * 配置没变时是常数级开销，可以放心在请求入口调用。
  */
 // 规则本身升级时也要让历史数据重新打标，不能只看主题配置是否变化
-const RULES_VERSION = 4;
+const RULES_VERSION = 5;
 export const ensureTopicTags = (force = false): RetagSummary => {
   const rules = topicRules();
   const signature = createHash('sha1').update(`${RULES_VERSION}|${JSON.stringify(rules)}`).digest('hex');
