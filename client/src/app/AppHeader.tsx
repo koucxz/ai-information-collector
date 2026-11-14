@@ -15,7 +15,7 @@ type AppHeaderProps = {
 };
 
 const VIEW_NAMES: Record<WorkspaceView, string> = {
-  inbox: '发现信息', topics: '选题工作台', actions: '行动清单', manage: '设置',
+  inbox: '看情报', topics: '挑选题', actions: '发布前检查', manage: '设置',
   events: '事件库', runs: '采集任务', sources: '信息来源', notifications: '通知渠道', settings: '数据与设置'
 };
 const MANAGEMENT_VIEWS: WorkspaceView[] = ['manage', 'events', 'runs', 'sources', 'notifications', 'settings'];
@@ -34,9 +34,9 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
       <span className="workspace-private">个人工作区 · PRIVATE</span>
       <nav className="workspace-nav" aria-label="主导航">
-        <button aria-current={props.activeView === 'inbox' ? 'page' : undefined} onClick={() => props.onNavigate('inbox')}><Compass size={17} />发现信息</button>
-        <button aria-current={props.activeView === 'topics' ? 'page' : undefined} onClick={() => props.onNavigate('topics')}><NotebookPen size={17} />选题工作台</button>
-        <button aria-current={props.activeView === 'actions' ? 'page' : undefined} onClick={() => props.onNavigate('actions')}><ListChecks size={17} />行动清单</button>
+        <button aria-current={props.activeView === 'inbox' ? 'page' : undefined} onClick={() => props.onNavigate('inbox')}><Compass size={17} />看情报</button>
+        <button aria-current={props.activeView === 'topics' ? 'page' : undefined} onClick={() => props.onNavigate('topics')}><NotebookPen size={17} />挑选题</button>
+        <button aria-current={props.activeView === 'actions' ? 'page' : undefined} onClick={() => props.onNavigate('actions')}><ListChecks size={17} />发布前检查</button>
         <button aria-current={inSettings ? 'page' : undefined} onClick={() => props.onNavigate('manage')}><Settings2 size={17} />设置</button>
       </nav>
       <Button className="workspace-logout" icon={<LogOut size={15} />} onClick={props.onLogout}>退出登录</Button>

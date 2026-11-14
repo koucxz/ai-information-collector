@@ -1,33 +1,59 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Checkbox, Empty, Input, Progress, Radio, Segmented, Select, Skeleton, Tag } from 'antd';
-import { Archive, ArrowRight, Copy, Download, ExternalLink, FileText, ListChecks, Plus, RotateCcw, Save, Sparkles } from 'lucide-react';
+import { Archive, ArrowRight, CheckCircle2, Copy, Download, ExternalLink, FileText, ListChecks, PenLine, Plus, RotateCcw, Save, Sparkles } from 'lucide-react';
 import { request } from '../../shared/api';
 import { useApiNotice } from '../../shared/notify';
 import { originalUrl } from '../../shared/links';
-import type { EditorialBrief } from '../../shared/types';
+import type { BriefStatus, CandidateResponse, EditorialBrief, TopicCandidate } from '../../shared/types';
 
 type Props = { view: 'topics' | 'actions'; selectedId: string; revision: number; onSelect: (id: string) => void; onNavigate: (view: 'inbox' | 'topics' | 'actions') => void; onDirty: (dirty: boolean) => void };
 type BriefTask = EditorialBrief['tasks'][number];
 type ActionRow = { briefId: string; briefTitle: string; archived: boolean; task: BriefTask };
 
-const editable = (brief: EditorialBrief) => ({ title: brief.title, reader: brief.reader, angle: brief.angle, outline: brief.outline, tasks: brief.tasks });
-const markdown = (brief: EditorialBrief) => `# ${brief.title}\n\n面向读者：${brief.reader}\n\n切入角度：${brief.angle === 'guide' ? '选型指南' : '工程解读'}\n\n生成方式：${brief.provider === 'ai' ? 'AI 综合建议' : '本地模板'}；关键结论待核验。\n\n${brief.rationale}\n\n## 提纲\n\n${brief.outline.map((s, i) => `${i + 1}. ${s.title}\n   ${s.detail}\n   参考：${s.sourceIds.map(id => `[${brief.sources.findIndex(source => source.id === id) + 1}]`).join(' ') || '待补充证据'}`).join('\n\n')}\n\n## 待核验\n${brief.checks.map(c => '- ' + c).join('\n')}\n\n## 参考原文\n${brief.sources.map((s, i) => `[${i + 1}] ${s.title}\n${originalUrl(s.url) || '原文链接缺失'}`).join('\n\n')}\n\n## 行动\n${brief.tasks.map(t => `- [${t.done ? 'x' : ' '}] ${t.title}${t.date ? '（' + t.date + '）' : ''}`).join('\n')}`;
+const editable = (brief: EditorialBrief) => ({
+  title: brief.title, reader: brief.reader, angle: brief.angle, outline: brief.outline, tasks: brief.tasks,
+  content: brief.content ?? '', status: brief.status ?? 'idea'
+});
+/** 兼容改造前生成、理由里带着「本地模板」旧文案的选题。 */
+const rationaleText = (brief: EditorialBrief) => brief.rationale.includes('当前为本地模板')
+  ? `综合 ${brief.sources.length} 条采集线索，先比较变化与适用条件，再整理可执行的研究问题；关键结论仍需回原文核验。`
+  : brief.rationale;
+const planMarkdown = (brief: EditorialBrief) => `# ${brief.title}\n\n面向读者：${brief.reader}\n\n切入角度：${brief.angle === 'guide' ? '选型指南' : '工程解读'}\n\n生成方式：${brief.provider === 'ai' ? 'AI 综合建议' : '本地模板'}；关键结论待核验。\n\n${rationaleText(brief)}\n\n## 提纲\n\n${brief.outline.map((s, i) => `${i + 1}. ${s.title}\n   ${s.detail}\n   参考：${s.sourceIds.map(id => `[${brief.sources.findIndex(source => source.id === id) + 1}]`).join(' ') || '待补充证据'}`).join('\n\n')}\n\n## 待核验\n${brief.checks.map(c => '- ' + c).join('\n')}\n\n## 参考原文\n${brief.sources.map((s, i) => `[${i + 1}] ${s.title}\n${originalUrl(s.url) || '原文链接缺失'}`).join('\n\n')}\n\n## 行动\n${brief.tasks.map(t => `- [${t.done ? 'x' : ' '}] ${t.title}${t.date ? '（' + t.date + '）' : ''}`).join('\n')}`;
 
-const STEPS: Array<{ key: 'inbox' | 'topics' | 'actions'; label: string; hint: string }> = [
-  { key: 'inbox', label: '发现信息', hint: '勾选 2–20 条相关线索' },
-  { key: 'topics', label: '提炼选题', hint: '整理角度、提纲与证据' },
-  { key: 'actions', label: '执行行动', hint: '核验、勾选完成并归档' }
+/** 起稿工坊的初稿：只拼装已有材料，事实与结论一律标注待核验，不编造内容。 */
+const draftContent = (brief: EditorialBrief) => {
+  const lines = [
+    `# ${brief.title}`, '',
+    `> 面向读者：${brief.reader}　|　切入角度：${brief.angle === 'guide' ? '选型指南' : '工程解读'}`,
+    '> 本文是按提纲拼装的待核验草稿，事实、数据与结论需回参考原文确认后再发布。', '',
+    '## 为什么要写', '', rationaleText(brief), '',
+    '## 正文', ''
+  ];
+  brief.outline.forEach((section, index) => {
+    lines.push(`### ${index + 1}. ${section.title}`, '', section.detail || '（待补充：回看参考原文后补上论据与例子。）', '');
+    const refs = section.sourceIds.map(id => brief.sources.findIndex(source => source.id === id) + 1).filter(index => index > 0);
+    if (refs.length) lines.push(`参考线索：${refs.map(index => `[${index}]`).join(' ')}`, '');
+  });
+  lines.push('## 发布前需要核验', '', ...brief.checks.map(check => `- [ ] ${check}`), '', '## 参考原文', '');
+  brief.sources.forEach((source, index) => lines.push(`[${index + 1}] ${source.title} · ${source.sourceName}`, originalUrl(source.url) || '原文链接缺失', ''));
+  return lines.join('\n');
+};
+
+const STEPS: Array<{ label: string; hint: string }> = [
+  { label: '看情报', hint: '采集到的信息都在这里' },
+  { label: '挑选题', hint: '看带理由的推荐，决定写什么' },
+  { label: '起稿', hint: '按提纲写正文、导出成稿' },
+  { label: '发布前检查', hint: '核验完再标记已发布' }
 ];
 
-function WorkflowRail(props: { view: 'topics' | 'actions'; onNavigate: (view: 'inbox' | 'topics' | 'actions') => void }) {
-  const current = props.view === 'topics' ? 1 : 2;
-  return <nav className="flow-rail" aria-label="选题流程">
+function WorkflowRail(props: { step: number; onStep: (index: number) => void }) {
+  return <nav className="flow-rail" aria-label="内容流程">
     {STEPS.map((step, index) => <button
-      key={step.key}
-      className={'flow-step' + (index === current ? ' is-current' : '') + (index < current ? ' is-done' : '')}
-      onClick={() => props.onNavigate(step.key)}
+      key={step.label}
+      className={'flow-step' + (index === props.step ? ' is-current' : '') + (index < props.step ? ' is-done' : '')}
+      onClick={() => props.onStep(index)}
     >
-      <span className="flow-index">{index < current ? '✓' : index + 1}</span>
+      <span className="flow-index">{index < props.step ? '✓' : index + 1}</span>
       <span><strong>{step.label}</strong><small>{step.hint}</small></span>
     </button>)}
   </nav>;
@@ -35,10 +61,13 @@ function WorkflowRail(props: { view: 'topics' | 'actions'; onNavigate: (view: 'i
 
 const statusOf = (brief: EditorialBrief) => {
   if (brief.archived) return { label: '已归档', color: 'default' };
-  const done = brief.tasks.filter(t => t.done).length;
-  if (brief.tasks.length && done === brief.tasks.length) return { label: '待归档', color: 'green' };
-  if (done) return { label: '进行中', color: 'blue' };
-  return { label: '待核验', color: 'gold' };
+  if (brief.status === 'published') return { label: '已发布', color: 'green' };
+  if (brief.status === 'draft') return { label: '撰写中', color: 'blue' };
+  if (brief.status === 'review') return { label: '待核验', color: 'gold' };
+  const done = brief.tasks.filter(task => task.done).length;
+  if (brief.tasks.length && done === brief.tasks.length) return { label: '待发布', color: 'green' };
+  if (done) return { label: '撰写中', color: 'blue' };
+  return { label: '待写', color: 'gold' };
 };
 const progressOf = (brief: EditorialBrief) => Math.round(brief.tasks.filter(t => t.done).length / Math.max(1, brief.tasks.length) * 100);
 const shortDate = (value: string) => {
@@ -49,6 +78,29 @@ const localToday = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
+
+function CandidateCard(props: { candidate: TopicCandidate; starting: boolean; onStart: (candidate: TopicCandidate) => void }) {
+  const c = props.candidate;
+  return <article className="candidate-card">
+    <div className="candidate-head">
+      <span className="candidate-score">{c.score}<small>分</small></span>
+      <div><strong>{c.title}</strong><span className="candidate-window">{c.window}</span></div>
+    </div>
+    <p className="candidate-why">{c.why}</p>
+    <div className="candidate-dims">
+      {c.dimensions.map(d => <div key={d.key} title={`${d.label}：${d.note}`}>
+        <span>{d.label}</span><i><b style={{ width: `${d.value}%` }} /></i><em>{d.note}</em>
+      </div>)}
+    </div>
+    <ul className="candidate-titles">{c.sampleTitles.slice(0, 2).map(title => <li key={title}>{title}</li>)}</ul>
+    <div className="candidate-foot">
+      <span><Tag color={c.angle === 'guide' ? 'blue' : 'purple'}>{c.angle === 'guide' ? '选型指南' : '工程解读'}</Tag>{c.clues} 条线索 · {c.sources} 个来源</span>
+      <Button type="primary" size="small" loading={props.starting} disabled={c.used} onClick={() => props.onStart(c)}>
+        {c.used ? '已开写' : '按这个选题开写'}
+      </Button>
+    </div>
+  </article>;
+}
 
 export function EditorialWorkspace(props: Props) {
   const notice = useApiNotice();
@@ -61,6 +113,9 @@ export function EditorialWorkspace(props: Props) {
   currentIdRef.current = currentId;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [starting, setStarting] = useState('');
+  const [localRevision, setLocalRevision] = useState(0);
+  const [editorTab, setEditorTab] = useState<'plan' | 'content'>('plan');
   const [libraryFilter, setLibraryFilter] = useState('active');
   const [taskFilter, setTaskFilter] = useState('all');
   const [briefFilter, setBriefFilter] = useState('all');
@@ -68,6 +123,8 @@ export function EditorialWorkspace(props: Props) {
   const [newTaskBrief, setNewTaskBrief] = useState('');
   const [textDrafts, setTextDrafts] = useState<Record<string, string>>({});
   const [savingIds, setSavingIds] = useState<string[]>([]);
+  const [candidates, setCandidates] = useState<TopicCandidate[]>([]);
+  const [candidateNote, setCandidateNote] = useState('');
   const queue = useRef<Record<string, Promise<void>>>({});
 
   const dirty = props.view === 'topics' && !!draft && !!base && JSON.stringify(editable(draft)) !== JSON.stringify(editable(base));
@@ -84,25 +141,43 @@ export function EditorialWorkspace(props: Props) {
   const applyBriefs = useCallback((next: EditorialBrief[]) => { briefsRef.current = next; setBriefs(next); }, []);
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const { data } = await request<{ data: EditorialBrief[] }>('/api/briefs', { feature: '选题库' });
-      applyBriefs(data);
-      const chosen = data.find(b => b.id === currentIdRef.current) || data[0] || null;
+    const [listResult, candidateResult] = await Promise.allSettled([
+      request<{ data: EditorialBrief[] }>('/api/briefs', { feature: '选题库' }),
+      request<CandidateResponse>('/api/briefs/candidates', { feature: '选题推荐' })
+    ]);
+    if (listResult.status === 'fulfilled') {
+      applyBriefs(listResult.value.data);
+      const chosen = listResult.value.data.find(b => b.id === currentIdRef.current) || listResult.value.data[0] || null;
       setBase(chosen); setDraft(chosen);
       if (chosen) setCurrentId(chosen.id);
-    } catch (caught) {
-      notice.error(caught instanceof Error ? caught.message : '「选题库」加载失败，请稍后重试');
-    } finally { setLoading(false); }
+    } else {
+      notice.error(listResult.reason instanceof Error ? listResult.reason.message : '「选题库」加载失败，请稍后重试');
+    }
+    if (candidateResult.status === 'fulfilled') {
+      setCandidates(candidateResult.value.data);
+      setCandidateNote(candidateResult.value.note);
+    } else {
+      notice.error(candidateResult.reason instanceof Error ? candidateResult.reason.message : '「选题推荐」加载失败，可稍后刷新');
+    }
+    setLoading(false);
   }, [applyBriefs, notice.error]);
-  useEffect(() => { void load(); }, [load, props.revision]);
+  useEffect(() => { void load(); }, [load, props.revision, localRevision]);
   useEffect(() => { setCurrentId(props.selectedId); }, [props.selectedId]);
 
-  // 从行动清单回到工作台时，把勾选结果同步回编辑器（不覆盖未保存的编辑）
   useEffect(() => {
     if (props.view !== 'topics' || dirtyRef.current) return;
     const chosen = briefsRef.current.find(b => b.id === currentIdRef.current) || briefsRef.current[0];
     if (chosen && chosen.version !== draft?.version) { setBase(chosen); setDraft(chosen); }
   }, [props.view]);
+
+  const goStep = (index: number) => {
+    if (index === 0) props.onNavigate('inbox');
+    else if (index === 1) { props.onNavigate('topics'); setEditorTab('plan'); }
+    else if (index === 2) { props.onNavigate('topics'); setEditorTab('content'); }
+    else props.onNavigate('actions');
+  };
+  const currentStep = props.view === 'actions' ? 3 : editorTab === 'content' ? 2 : 1;
+  const rail = <WorkflowRail step={currentStep} onStep={goStep} />;
 
   const pick = (id: string) => {
     if (busy) return;
@@ -113,35 +188,58 @@ export function EditorialWorkspace(props: Props) {
     setBase(chosen); setDraft(chosen);
   };
 
-  const save = async (archived?: boolean) => {
+  const save = async (extra?: { archived?: boolean; status?: BriefStatus }) => {
     if (!draft || busy) return;
     setBusy(true);
     try {
-      const changes = archived === false && draft.archived ? { archived: false } : { ...editable(draft), ...(archived === undefined ? {} : { archived }) };
+      const changes = { ...editable(draft), ...(extra ?? {}) };
       const { data } = await request<{ data: EditorialBrief }>('/api/briefs/' + draft.id, { method: 'PATCH', feature: '选题编辑', body: JSON.stringify({ version: draft.version, ...changes }) });
       setDraft(data); setBase(data);
       applyBriefs(briefsRef.current.map(b => b.id === data.id ? data : b));
-      notice.success(archived === true ? '选题已归档，资料与行动进度已保留' : archived === false ? '选题已恢复' : '「选题编辑」修改已保存');
+      notice.success(extra?.status === 'published' ? '已标记为发布，正文与参考原文已保留'
+        : extra?.archived === true ? '选题已归档，资料与检查进度已保留'
+          : extra?.archived === false ? '选题已恢复' : '「选题编辑」修改已保存');
     } catch (caught) {
       notice.error(caught instanceof Error ? caught.message : '「选题编辑」保存失败，当前内容已保留');
     } finally { setBusy(false); }
   };
 
-  const exportBrief = async (copy: boolean) => {
-    if (!draft) return;
-    const content = markdown(draft);
+  const exportText = async (copy: boolean, text: string, filename: string, label: string) => {
     if (copy) {
-      try { await navigator.clipboard.writeText(content); notice.success('「选题导出」已复制，含参考原文与行动'); }
-      catch { notice.error('「选题导出」浏览器未允许复制，请改用导出文件'); }
+      try { await navigator.clipboard.writeText(text); notice.success(`「${label}」已复制到剪贴板`); }
+      catch { notice.error(`「${label}」浏览器未允许复制，请改用导出文件`); }
       return;
     }
-    const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
-    const a = document.createElement('a'); a.href = url; a.download = 'SignalDock-选题.md'; a.click();
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notice.success('「选题导出」Markdown 已下载');
+    notice.success(`「${label}」Markdown 已下载`);
   };
 
-  /** 行动按所属选题串行提交，避免同一条选题的版本号冲突。 */
+  const startFromCandidate = async (candidate: TopicCandidate) => {
+    if (busy || starting) return;
+    setStarting(candidate.id);
+    try {
+      const result = await request<{ data: EditorialBrief[]; reused: boolean }>('/api/briefs/generate', {
+        method: 'POST', feature: '提炼选题', body: JSON.stringify({ itemIds: candidate.itemIds })
+      });
+      const id = result.data[0]?.id;
+      if (id) { setCurrentId(id); props.onSelect(id); setEditorTab('plan'); }
+      setLocalRevision(value => value + 1);
+      notice.success(result.reused ? '这条选题已经开写过，已为你打开' : '已生成选题方案，可接着起稿');
+    } catch (caught) {
+      notice.error(caught instanceof Error ? caught.message : '「提炼选题」失败，请稍后重试');
+    } finally { setStarting(''); }
+  };
+
+  const generateDraft = () => {
+    if (!draft) return;
+    if (draft.content?.trim() && !window.confirm('正文已有内容，生成初稿会覆盖当前正文，继续吗？')) return;
+    setDraft({ ...draft, content: draftContent(draft), status: 'draft' });
+    notice.success('已按提纲拼装待核验草稿，请补论据并回原文核验');
+  };
+
+  /** 检查表按所属选题串行提交，避免同一条选题的版本号冲突。 */
   const mutate = (briefId: string, transform: (tasks: BriefTask[]) => BriefTask[], tag: string) => {
     const current = briefsRef.current.find(b => b.id === briefId);
     if (!current || current.archived) return;
@@ -152,33 +250,18 @@ export function EditorialWorkspace(props: Props) {
       if (!latest) return;
       try {
         const { data } = await request<{ data: EditorialBrief }>('/api/briefs/' + briefId, {
-          method: 'PATCH', feature: '行动清单',
+          method: 'PATCH', feature: '发布前检查',
           body: JSON.stringify({ version: latest.version, tasks: latest.tasks })
         });
         applyBriefs(briefsRef.current.map(b => b.id === briefId ? data : b));
       } catch (caught) {
-        notice.error(caught instanceof Error ? caught.message : '「行动清单」保存失败，正在重新加载');
+        notice.error(caught instanceof Error ? caught.message : '「发布前检查」保存失败，正在重新加载');
         void load();
       } finally { setSavingIds(ids => ids.filter(value => value !== tag)); }
     });
   };
 
   if (loading) return <main className="editorial-workspace editorial-loading" role="status" aria-label="加载中"><Skeleton active title={{ width: '38%' }} paragraph={{ rows: 8 }} /></main>;
-  const rail = <WorkflowRail view={props.view} onNavigate={props.onNavigate} />;
-  if (!briefs.length) return <main className="editorial-workspace studio">
-    {rail}
-    <section className="studio-empty">
-      <span className="studio-empty-icon"><Sparkles size={22} /></span>
-      <h1>这里收的是「可以写成一篇内容的选题」</h1>
-      <p>不是信息列表，也不是待办清单：把在「发现信息」里勾选的多条线索，综合成一个带角度、提纲、证据和核验步骤的选题。</p>
-      <ol>
-        <li><strong>发现信息</strong><span>勾选 2–20 条讲同一件事的线索</span></li>
-        <li><strong>提炼选题</strong><span>点「提炼选题」，系统生成标题、提纲与参考原文</span></li>
-        <li><strong>执行行动</strong><span>按核验清单逐条完成，勾选后归档成稿</span></li>
-      </ol>
-      <Button type="primary" onClick={() => props.onNavigate('inbox')}>去发现信息</Button>
-    </section>
-  </main>;
 
   if (props.view === 'actions') return <ActionsView
     rail={rail}
@@ -216,19 +299,37 @@ export function EditorialWorkspace(props: Props) {
 
   const filtered = briefs.filter(b => libraryFilter === 'all' || (libraryFilter === 'archived' ? b.archived : !b.archived));
   const todoCount = draft ? draft.tasks.filter(t => !t.done).length : 0;
+  const content = draft?.content ?? '';
+  const published = draft?.status === 'published';
   return <main className="editorial-workspace studio">
     {rail}
     <header className="studio-heading">
       <div>
-        <span className="editorial-eyebrow">选题工作台 · TOPIC STUDIO</span>
-        <h1>把多条线索，整理成一个能写的选题</h1>
-        <p>左侧是选题库（每条都由线索综合而来），右侧是当前选题的标题、角度、提纲和可追溯的参考原文。</p>
+        <span className="editorial-eyebrow">挑选题 · TOPIC PICKER</span>
+        <h1>先知道写什么，再谈怎么写</h1>
+        <p>下面是从近 30 天采集记录算出的候选选题，每条都带评分、理由和原始线索。点「按这个选题开写」，生成方案后在「起稿」里写正文。</p>
       </div>
-      <Button onClick={() => props.onNavigate('inbox')}>去发现信息</Button>
+      <Button onClick={() => props.onNavigate('inbox')}>去看情报</Button>
     </header>
+
+    <section className="candidate-section" aria-label="今日选题推荐">
+      <div className="candidate-section-head">
+        <div><strong>今天写什么</strong><span>带理由的选题推荐 · 共 {candidates.length} 条</span></div>
+        <small>{candidateNote || '评分来自采集记录，不使用大模型'}</small>
+      </div>
+      {candidates.length
+        ? <div className="candidate-grid">{candidates.map(candidate => <CandidateCard key={candidate.id} candidate={candidate} starting={starting === candidate.id} onStart={candidate => void startFromCandidate(candidate)} />)}</div>
+        : <Empty description="近 30 天还没有足够线索（至少 2 条同主题信息才会生成推荐）"><Button onClick={() => props.onNavigate('inbox')}>去看情报</Button></Empty>}
+    </section>
+
+    {!briefs.length && <div className="studio-onboard">
+      <Sparkles size={18} />
+      <div><strong>还没有开写的选题</strong><span>点上面任意一条「按这个选题开写」，系统会把这些线索整理成标题、提纲、参考原文与核验清单；正文写完、检查项勾完，就能标记已发布。</span></div>
+    </div>}
+
     <div className="studio-layout">
       <aside className="studio-library">
-        <div className="studio-library-head"><div><strong>选题库</strong><span>{briefs.length} 条</span></div></div>
+        <div className="studio-library-head"><div><strong>我的选题</strong><span>{briefs.length} 条</span></div></div>
         <Segmented block size="small" value={libraryFilter} onChange={(value) => setLibraryFilter(String(value))} options={[{ label: '进行中', value: 'active' }, { label: '已归档', value: 'archived' }, { label: '全部', value: 'all' }]} />
         <div className="studio-library-list">
           {filtered.map(brief => {
@@ -236,26 +337,32 @@ export function EditorialWorkspace(props: Props) {
             return <button key={brief.id} className={'brief-card' + (currentId === brief.id ? ' is-current' : '')} onClick={() => pick(brief.id)}>
               <div className="brief-card-top"><Tag color={status.color}>{status.label}</Tag><span>{shortDate(brief.updatedAt)}</span></div>
               <strong>{brief.title}</strong>
-              <div className="brief-card-meta"><span><FileText size={12} />{brief.sources.length} 条线索</span><span><ListChecks size={12} />{brief.tasks.filter(t => t.done).length}/{brief.tasks.length} 行动</span></div>
+              <div className="brief-card-meta">
+                {brief.signal && <span className="brief-score">{brief.signal.score} 分</span>}
+                <span><FileText size={12} />{brief.sources.length} 条线索</span>
+                <span><ListChecks size={12} />{brief.tasks.filter(t => t.done).length}/{brief.tasks.length} 核验</span>
+              </div>
               <Progress percent={progressOf(brief)} showInfo={false} size="small" />
             </button>;
           })}
           {!filtered.length && <p className="studio-library-empty">该状态下暂无选题</p>}
         </div>
-        <Button block icon={<Plus size={14} />} onClick={() => props.onNavigate('inbox')}>从线索提炼新选题</Button>
+        <Button block icon={<Plus size={14} />} onClick={() => props.onNavigate('inbox')}>从情报里手动勾线索</Button>
       </aside>
       <section className="studio-detail">
-        {!draft ? <Empty description="选择左侧的一条选题开始编辑" /> : <>
+        {!draft ? <Empty description="选一条推荐开写，或在左侧选择已有选题" /> : <>
           <div className="studio-detail-head">
-            <div><span className="editorial-eyebrow">当前选题 · {statusOf(draft).label}</span><p>{draft.provider === 'ai' ? 'AI 综合建议' : '本地模板'} · {draft.sources.length} 条参考线索 · {draft.tasks.length} 条行动</p></div>
+            <div><span className="editorial-eyebrow">当前选题 · {statusOf(draft).label}</span><p>{draft.provider === 'ai' ? 'AI 综合建议' : '本地模板'} · {draft.sources.length} 条参考线索 · {draft.tasks.length} 项发布前检查{draft.signal ? ` · 推荐评分 ${draft.signal.score}` : ''}</p></div>
             <div className="studio-detail-actions">
-              <Button icon={<Copy size={14} />} onClick={() => void exportBrief(true)}>复制</Button>
-              <Button icon={<Download size={14} />} onClick={() => void exportBrief(false)}>导出</Button>
-              <Button type="primary" icon={<Save size={14} />} loading={busy} disabled={!dirty || draft.archived} onClick={() => void save()}>保存修改</Button>
+              <Segmented value={editorTab} onChange={(value) => setEditorTab(String(value) as 'plan' | 'content')} options={[{ label: '选题方案', value: 'plan' }, { label: '起稿', value: 'content' }]} />
+              <Button icon={<Copy size={14} />} onClick={() => void exportText(true, editorTab === 'content' && content.trim() ? content : planMarkdown(draft), '', editorTab === 'content' ? '正文导出' : '选题导出')}>复制</Button>
+              <Button icon={<Download size={14} />} onClick={() => void exportText(false, editorTab === 'content' && content.trim() ? content : planMarkdown(draft), editorTab === 'content' ? 'SignalDock-成稿.md' : 'SignalDock-选题.md', editorTab === 'content' ? '正文导出' : '选题导出')}>导出</Button>
+              <Button type="primary" icon={<Save size={14} />} loading={busy} disabled={!dirty || draft.archived} onClick={() => void save()}>保存</Button>
             </div>
           </div>
           <div className={'studio-save-state' + (dirty ? ' is-dirty' : '')} aria-live="polite">{dirty ? '● 有未保存的修改' : '✓ 修改已保存'}</div>
-          <div className="studio-grid">
+
+          {editorTab === 'plan' ? <div className="studio-grid">
             <div className="studio-editor">
               <fieldset disabled={busy || draft.archived}>
                 <label className="editorial-field">选题标题<Input.TextArea aria-label="选题标题" value={draft.title} maxLength={200} autoSize={{ minRows: 2, maxRows: 4 }} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label>
@@ -267,20 +374,52 @@ export function EditorialWorkspace(props: Props) {
                 {draft.outline.map((section, index) => <div className="editorial-outline" key={index}><span>{String(index + 1).padStart(2, '0')}</span><div><Input aria-label={'提纲标题 ' + (index + 1)} value={section.title} maxLength={200} onChange={e => setDraft({ ...draft, outline: draft.outline.map((s, i) => i === index ? { ...s, title: e.target.value } : s) })} /><Input.TextArea aria-label={'提纲说明 ' + (index + 1)} value={section.detail} maxLength={1200} autoSize={{ minRows: 2, maxRows: 6 }} onChange={e => setDraft({ ...draft, outline: draft.outline.map((s, i) => i === index ? { ...s, detail: e.target.value } : s) })} /><small>{section.sourceIds.length ? '参考线索 ' + section.sourceIds.map(id => '[' + (draft.sources.findIndex(s => s.id === id) + 1) + ']').join(' ') : '待补充证据'}</small></div></div>)}
               </fieldset>
               <div className="studio-next">
-                <div><strong>下一步：把行动做完</strong><p>{todoCount ? `还有 ${todoCount} 条核验 / 补证据行动，完成后即可归档成稿。` : '行动已全部完成，可以归档这条选题。'}</p></div>
-                <Button type="primary" icon={<ArrowRight size={14} />} onClick={() => props.onNavigate('actions')}>打开行动清单</Button>
+                <div><strong>下一步：按提纲起稿</strong><p>系统会用这里的标题、提纲和参考原文拼出一份待核验草稿，正文由你补论据、下结论。</p></div>
+                <Button type="primary" icon={<PenLine size={14} />} onClick={() => setEditorTab('content')}>去起稿</Button>
               </div>
             </div>
             <aside className="editorial-evidence">
-              <h2>为什么做这个选题</h2><p>{draft.rationale}</p>
+              {draft.signal && <div className="signal-card">
+                <div className="signal-score"><strong>{draft.signal.score}</strong><span>推荐评分</span></div>
+                <p className="signal-window">{draft.signal.window}</p>
+                <p className="signal-why">{draft.signal.why}</p>
+                <div className="signal-dims">{draft.signal.dimensions.map(d => <span key={d.key}>{d.label} <b>{d.note}</b></span>)}</div>
+                <small>由采集记录规则计算，不代表事实判断</small>
+              </div>}
+              <h2>为什么做这个选题</h2><p>{rationaleText(draft)}</p>
               <h2>参考原文（{draft.sources.length}）</h2>
               {draft.sources.map((source, i) => <article key={source.id}><small>[{i + 1}] {source.sourceName} · 采集片段</small><h3>{source.title}</h3>{originalUrl(source.url) ? <a href={originalUrl(source.url)} target="_blank" rel="noopener noreferrer">查看原文 <ExternalLink size={12} /></a> : <span>原文链接缺失</span>}</article>)}
               <h2>还需核验（{draft.checks.length}）</h2><ul>{draft.checks.map((check, i) => <li key={i}>{check}</li>)}</ul>
             </aside>
-          </div>
+          </div> : <div className="writing-grid">
+            <div className="writing-main">
+              <div className="writing-toolbar">
+                <div><strong>正文</strong><span>{content.length} 字 · {published ? '已标记发布' : content.trim() ? '草稿待核验' : '尚未起稿'}</span></div>
+                <div><Button icon={<Sparkles size={14} />} disabled={draft.archived} onClick={generateDraft}>按提纲生成初稿</Button><Button icon={<ArrowRight size={14} />} onClick={() => props.onNavigate('actions')}>去看检查表</Button></div>
+              </div>
+              <Input.TextArea className="writing-area" aria-label="正文内容" value={content} disabled={busy || draft.archived} placeholder="在这里写正文，或点「按提纲生成初稿」得到一份带参考线索编号、明确标注待核验的草稿。" autoSize={{ minRows: 18, maxRows: 40 }} onChange={e => setDraft({ ...draft, content: e.target.value, status: draft.status === 'idea' ? 'draft' : draft.status })} />
+              <div className="writing-publish">
+                <div>
+                  <strong>{published ? '这篇已标记为发布' : todoCount ? `还有 ${todoCount} 项发布前检查未完成` : '检查项已全部完成，可以标记发布'}</strong>
+                  <p>{published ? `发布于 ${draft.publishedAt ? new Date(draft.publishedAt).toLocaleString('zh-CN') : '—'}；正文与参考原文会一直保留。` : '标记发布只是记录成稿状态，不会自动发到任何平台；导出 Markdown 后可自行发布。'}</p>
+                </div>
+                {published
+                  ? <Tag color="green"><CheckCircle2 size={13} /> 已发布</Tag>
+                  : <Button type="primary" icon={<CheckCircle2 size={14} />} loading={busy} disabled={!content.trim() || todoCount > 0 || draft.archived} onClick={() => void save({ status: 'published' })}>标记已发布</Button>}
+              </div>
+            </div>
+            <aside className="writing-side">
+              <h2>发布前检查表</h2>
+              <Progress percent={progressOf(draft)} />
+              <p>{draft.tasks.filter(t => t.done).length}/{draft.tasks.length} 项已完成。全部勾完才能标记已发布。</p>
+              <ul>{draft.tasks.map(task => <li key={task.id} className={task.done ? 'is-done' : ''}>{task.done ? '✓' : '○'} {task.title}</li>)}</ul>
+              <Button block onClick={() => props.onNavigate('actions')}>逐项核验</Button>
+            </aside>
+          </div>}
+
           <div className="studio-archive">
-            <span>{draft.archived ? '资料与行动已保留，恢复后可继续编辑。' : '归档前需完成全部行动；归档后内容只读、可随时恢复。'}</span>
-            <Button icon={draft.archived ? <RotateCcw size={14} /> : <Archive size={14} />} loading={busy} disabled={!draft.archived && todoCount > 0} onClick={() => void save(!draft.archived)}>{draft.archived ? '恢复选题' : '完成并归档'}</Button>
+            <span>{draft.archived ? '资料与检查进度已保留，恢复后可继续编辑。' : '归档 = 这条选题不再处理；归档前需完成全部检查项，之后内容只读、可随时恢复。'}</span>
+            <Button icon={draft.archived ? <RotateCcw size={14} /> : <Archive size={14} />} loading={busy} disabled={!draft.archived && todoCount > 0} onClick={() => void save({ archived: !draft.archived })}>{draft.archived ? '恢复选题' : '不再处理并归档'}</Button>
           </div>
         </>}
       </section>
@@ -316,13 +455,14 @@ function ActionsView(props: ActionsProps) {
   const todo = rows.filter(row => !row.task.done).length;
   const done = rows.length - todo;
   const activeBriefs = props.briefs.filter(brief => !brief.archived);
+  const publishable = activeBriefs.filter(brief => brief.status !== 'published' && brief.tasks.length > 0 && brief.tasks.every(task => task.done));
   const visible = rows.filter(row => (props.taskFilter === 'all' || (props.taskFilter === 'done' ? row.task.done : !row.task.done)) && (props.briefFilter === 'all' || row.briefId === props.briefFilter));
   const groups: Array<{ label: string; hint: string; rows: ActionRow[] }> = [
-    { label: '已逾期', hint: '计划日期已过，优先处理', rows: [] },
+    { label: '已逾期', hint: '计划日期已过，优先核验', rows: [] },
     { label: '今天', hint: '今天计划完成', rows: [] },
-    { label: '之后', hint: '已排期的后续行动', rows: [] },
+    { label: '之后', hint: '已排期的后续核验', rows: [] },
     { label: '未排期', hint: '还没安排日期', rows: [] },
-    { label: '已完成', hint: '核验 / 补证据已完成', rows: [] }
+    { label: '已完成', hint: '核验完成，可进入发布', rows: [] }
   ];
   for (const row of visible) {
     if (row.task.done) groups[4].rows.push(row);
@@ -335,29 +475,28 @@ function ActionsView(props: ActionsProps) {
     {props.rail}
     <header className="studio-heading">
       <div>
-        <span className="editorial-eyebrow">行动清单 · NEXT ACTIONS</span>
-        <h1>所有选题的「下一步」，都在这里做完</h1>
-        <p>系统综合线索时会列出待核验项与行动；这里汇总全部选题的行动，勾选、排日期后自动保存。完成后回选题工作台归档成稿。</p>
+        <span className="editorial-eyebrow">发布前检查 · PRE-PUBLISH CHECKS</span>
+        <h1>成稿之前，把该核验的都核验完</h1>
+        <p>每条选题的核验事项汇总在这里：核对原文的发布时间、统计口径和适用条件，补官方材料或独立反馈。全部勾完，就能在「起稿」里把正文标记为已发布。</p>
       </div>
-      <Button onClick={() => props.onNavigate('topics')}>回选题工作台</Button>
+      <Button onClick={() => props.onNavigate('topics')}>回挑选题</Button>
     </header>
+    {publishable.length > 0 && <div className="publish-ready"><CheckCircle2 size={16} /><span>有 {publishable.length} 条选题的核验项已全部完成，可以标记已发布了。</span><Button size="small" type="primary" onClick={() => props.onNavigate('topics')}>去标记发布</Button></div>}
     <div className="action-stats">
-      <div><span>待完成</span><strong>{todo}</strong><small>条行动</small></div>
-      <div><span>已完成</span><strong>{done}</strong><small>条行动</small></div>
-      <div><span>涉及选题</span><strong>{activeBriefs.length}</strong><small>条进行中选题</small></div>
+      <div><span>待核验</span><strong>{todo}</strong><small>项检查</small></div>
+      <div><span>已完成</span><strong>{done}</strong><small>项检查</small></div>
+      <div><span>可发布</span><strong>{publishable.length}</strong><small>条选题</small></div>
     </div>
     <div className="action-toolbar">
-      <Segmented value={props.taskFilter} onChange={(value) => props.onTaskFilter(String(value))} options={[{ label: '全部', value: 'all' }, { label: '待完成', value: 'todo' }, { label: '已完成', value: 'done' }]} />
-      <Select aria-label="按选题筛选行动" value={props.briefFilter} onChange={props.onBriefFilter} style={{ width: 240 }} options={[{ value: 'all', label: '全部选题' }, ...props.briefs.map(brief => ({ value: brief.id, label: (brief.archived ? '已归档 · ' : '') + brief.title }))]} />
+      <Segmented value={props.taskFilter} onChange={(value) => props.onTaskFilter(String(value))} options={[{ label: '全部', value: 'all' }, { label: '待核验', value: 'todo' }, { label: '已完成', value: 'done' }]} />
+      <Select aria-label="按选题筛选检查项" value={props.briefFilter} onChange={props.onBriefFilter} style={{ width: 240 }} options={[{ value: 'all', label: '全部选题' }, ...props.briefs.map(brief => ({ value: brief.id, label: (brief.archived ? '已归档 · ' : '') + brief.title }))]} />
     </div>
     <div className="action-add">
-      <Input aria-label="添加一条行动" placeholder="添加一条行动，例如：核对官方发布说明" value={props.newTask} maxLength={300} onChange={e => props.onNewTask(e.target.value)} onPressEnter={props.onAdd} />
-      <Select aria-label="行动所属选题" value={props.newTaskBrief || activeBriefs[0]?.id} onChange={props.onNewTaskBrief} style={{ width: 230 }} options={activeBriefs.map(brief => ({ value: brief.id, label: brief.title }))} />
-      <Button type="primary" icon={<Plus size={14} />} disabled={!props.newTask.trim() || !activeBriefs.length} onClick={props.onAdd}>添加行动</Button>
+      <Input aria-label="添加一条核验项" placeholder="添加一条核验项，例如：核对官方发布说明" value={props.newTask} maxLength={300} onChange={e => props.onNewTask(e.target.value)} onPressEnter={props.onAdd} />
+      <Select aria-label="检查项所属选题" value={props.newTaskBrief || activeBriefs[0]?.id} onChange={props.onNewTaskBrief} style={{ width: 230 }} options={activeBriefs.map(brief => ({ value: brief.id, label: brief.title }))} />
+      <Button type="primary" icon={<Plus size={14} />} disabled={!props.newTask.trim() || !activeBriefs.length} onClick={props.onAdd}>添加检查项</Button>
     </div>
-    {!visible.length && <Empty description="当前筛选下没有行动">
-      <Button onClick={() => { props.onTaskFilter('all'); props.onBriefFilter('all'); }}>查看全部行动</Button>
-    </Empty>}
+    {!visible.length && <Empty description="当前筛选下没有检查项"><Button onClick={() => { props.onTaskFilter('all'); props.onBriefFilter('all'); }}>查看全部检查项</Button></Empty>}
     {groups.filter(group => group.rows.length).map(group => <section className="action-group" key={group.label}>
       <div className="action-group-head"><h2>{group.label}<span>{group.rows.length}</span></h2><small>{group.hint}</small></div>
       {group.rows.map(row => {
@@ -366,7 +505,7 @@ function ActionsView(props: ActionsProps) {
         return <article className={'action-row' + (row.task.done ? ' is-done' : '')} key={key}>
           <Checkbox aria-label={'完成：' + row.task.title} checked={row.task.done} disabled={disabled} onChange={e => props.onToggle(row, e.target.checked)} />
           <div className="action-row-main">
-            <Input.TextArea aria-label="行动内容" value={props.textDrafts[key] ?? row.task.title} maxLength={300} autoSize={{ minRows: 1, maxRows: 3 }} disabled={disabled} onChange={e => props.onTextDraft(key, e.target.value)} onBlur={() => props.onTextBlur(row)} />
+            <Input.TextArea aria-label="检查项内容" value={props.textDrafts[key] ?? row.task.title} maxLength={300} autoSize={{ minRows: 1, maxRows: 3 }} disabled={disabled} onChange={e => props.onTextDraft(key, e.target.value)} onBlur={() => props.onTextBlur(row)} />
             <div className="action-row-meta">
               <button className="action-brief-link" onClick={() => props.onOpenBrief(row.briefId)}><FileText size={12} />{row.briefTitle}</button>
               <label>计划日期 <input type="date" aria-label={'计划日期：' + row.task.title} value={row.task.date} disabled={disabled} onChange={e => props.onDate(row, e.target.value)} /></label>
@@ -374,7 +513,7 @@ function ActionsView(props: ActionsProps) {
               {row.archived && <span className="action-saving">已归档 · 只读</span>}
             </div>
           </div>
-          <Tag color={row.task.done ? 'green' : 'default'}>{row.task.done ? '已完成' : '待完成'}</Tag>
+          <Tag color={row.task.done ? 'green' : 'default'}>{row.task.done ? '已完成' : '待核验'}</Tag>
         </article>;
       })}
     </section>)}

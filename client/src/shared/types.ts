@@ -51,10 +51,26 @@ export type FeedOverview = { all: number; unread: number; relevant: number; glob
 export type WorkspaceView = 'inbox' | 'topics' | 'actions' | 'manage' | 'events' | 'runs' | 'sources' | 'notifications' | 'settings';
 export type BriefSection = { title: string; detail: string; sourceIds: string[] };
 export type BriefTask = { id: string; title: string; done: boolean; date: string };
+export type BriefStatus = 'idea' | 'draft' | 'review' | 'published';
+export type SignalDimension = { key: string; label: string; value: number; note: string };
+export type BriefSignal = {
+  score: number; dimensions: SignalDimension[]; why: string; window: string;
+  angle: 'guide' | 'engineering'; clues: number; sources: number;
+  freshnessHours: number; method: 'rules';
+};
+export type TopicCandidate = BriefSignal & {
+  id: string; keyword: string; title: string; headline: string;
+  itemIds: string[]; sampleTitles: string[]; used: boolean;
+};
+export type CandidateResponse = {
+  data: TopicCandidate[]; generatedAt: string; windowDays: number;
+  method: 'rules'; note: string;
+};
 export type EditorialBrief = {
   id: string; version: number; createdAt: string; updatedAt: string;
   title: string; reader: string; angle: 'guide' | 'engineering'; rationale: string;
   outline: BriefSection[]; checks: string[]; tasks: BriefTask[];
   sources: { id: string; title: string; sourceName: string; summary: string; url: string }[];
   provider: 'ai' | 'fallback'; archived: boolean;
+  content?: string; status?: BriefStatus; publishedAt?: string; signal?: BriefSignal;
 };

@@ -6,13 +6,14 @@ import { informationStore } from '../collection/information.store.js';
 import { draftSchema, type Brief, type BriefDocument, type SourceSnapshot } from './brief.schemas.js';
 import { briefStore } from './brief.store.js';
 import { withAiBudget } from '../analysis/ai-budget.js';
+import { buildSignal, type BriefSignal } from './candidates.js';
 
 export class BriefError extends Error { constructor(public status: number, message: string) { super(message); } }
 const pending = new Map<string, Promise<{ data: Brief[]; reused: boolean }>>();
 const modelSchema = z.object({ briefs: z.array(draftSchema).min(1).max(3) }).strict();
 const template = (sources: SourceSnapshot[], label: string): BriefDocument => ({
   title: `${label}：有哪些变化，下一步该如何验证？`.slice(0, 200), reader: `关注${label}的从业者与决策者`, angle: 'guide',
-  rationale: `综合 ${sources.length} 条采集线索，先比较变化与适用条件，再整理可执行的研究问题。当前为本地模板，尚未得出跨来源事实结论。`,
+  rationale: `综合 ${sources.length} 条采集线索，先比较变化与适用条件，再整理可执行的研究问题；关键结论仍需回原文核验。`,
   outline: [
     { title: '汇总多条线索，明确共同问题', detail: '对照各条原文，区分重复报道、互相支持的事实与不同适用场景。', sourceIds: sources.map(s => s.id) },
     { title: '比较适用条件、验证方式与成本', detail: '用同一组维度整理材料；来源没有覆盖的维度保留为待核验问题。', sourceIds: sources.map(s => s.id) },
@@ -32,7 +33,7 @@ export const validateModelDrafts = (input: unknown, sources: SourceSnapshot[]): 
   });
 };
 
-async function generate(key: string, sources: SourceSnapshot[], label: string) {
+async function generate(key: string, sources: SourceSnapshot[], label: string, signal: BriefSignal) {
   // Reserve a persistent daily allowance before any external request. No retries amplify cost.
   const day = new Date().toISOString().slice(0, 10);
   const reserved = db.prepare('INSERT INTO generation_usage (day, count) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count').get(day, env.BRIEF_DAILY_LIMIT);
@@ -60,6 +61,14 @@ async function generate(key: string, sources: SourceSnapshot[], label: string) {
       analysisCallStore.record({ provider: 'brief-fallback', status: 'fallback', attempts: 1, durationMs: Date.now() - startedAt, error: 'AI 未返回有效的综合选题，已使用本地模板' });
     }
   }
+  // 无论 AI 是否可用，选题都带上可追溯的推荐理由，并进入「待写」状态等待起稿。
+  documents = documents.map(document => ({
+    ...document,
+    signal,
+    content: '',
+    status: 'idea' as const,
+    rationale: document.provider === 'fallback' ? signal.why : document.rationale
+  }));
   return { data: briefStore.createMany(key, documents), reused: false };
 }
 
@@ -74,7 +83,13 @@ export const generateBriefs = async (ids: string[]) => {
   if (pending.size >= 1) throw new BriefError(409, '已有选题正在生成，请稍后重试');
   const sources = valid.map(item => ({ id: item.id, title: item.title.slice(0, 200), summary: (item.summary || item.content).slice(0, 1500), url: item.url, sourceName: item.sourceName }));
   const labels = [...new Set(valid.map(item => item.keyword).filter(Boolean))];
-  const job = generate(key, sources, labels.slice(0, 3).join('、') || '本轮关注信息');
+  const label = labels.slice(0, 3).join('、') || '本轮关注信息';
+  const signal = buildSignal(valid.map(item => ({
+    id: item.id, keyword: item.keyword, source: item.source, sourceName: item.sourceName,
+    title: item.title, collectedAt: item.collectedAt, importanceScore: item.importanceScore,
+    relevanceScore: item.relevanceScore, eventKey: item.eventKey
+  })), label);
+  const job = generate(key, sources, label, signal);
   pending.set(key, job);
   try { return await job; } finally { pending.delete(key); }
 };
