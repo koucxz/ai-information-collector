@@ -13,6 +13,7 @@ import { dataRouter } from './modules/data/data.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { requireAuth } from './auth.js';
 import { briefRouter } from './modules/briefs/brief.routes.js';
+import { telemetryRouter } from './modules/telemetry/telemetry.routes.js';
 
 export const app = express();
 
@@ -35,6 +36,8 @@ app.use((request, response, next) => {
 // Authenticate large backup uploads before reading them; normal requests stay small.
 app.use('/api/data/restore', requireAuth, express.json({ limit: '20mb' }));
 app.use(express.json({ limit: '256kb' }));
+// 连接质量上报必须在鉴权与业务限流之前：未登录和链路故障时的超时也要能记录
+app.use('/api/telemetry', telemetryRouter);
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, message: { error: '请求过于频繁，请稍后再试' } }));
 
 app.get('/api/health', (_request, response) => {

@@ -53,6 +53,17 @@ const pace = (feature: string, phase: PacePhase) => {
   window.dispatchEvent(new CustomEvent('signaldock:request-pace', { detail: { feature, phase } }));
 };
 
+/** 把真实用户侧的慢连接/超时留痕，供 /ops/status 看板统计；上报失败绝不影响业务请求。 */
+function reportTelemetry(feature: string, reason: 'timeout' | 'network' | 'server' | 'slow', ms: number): void {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.sendBeacon) return;
+    const body = JSON.stringify({ feature, reason, ms: Math.round(ms), origin: window.location.host });
+    navigator.sendBeacon('/api/telemetry', new Blob([body], { type: 'application/json' }));
+  } catch {
+    // 忽略：链路故障时上报本身也可能失败
+  }
+}
+
 /** 合并内部超时信号与调用方的取消信号，避免列表切换时残留挂起请求。 */
 function combineSignals(signals: AbortSignal[]): AbortSignal {
   const controller = new AbortController();
@@ -88,12 +99,26 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
   const retries = options.timeoutMs ? 0 : (quick ? QUICK_RETRIES : 0);
   // 用对象承载，避免 TS 把回调里的赋值排除在控制流分析之外
   const state: { reason: 'timeout' | 'network' | 'server' } = { reason: 'network' };
+  const startedAt = performance.now();
+  let slowReported = false;
+  let errorReported = false;
+  const emitError = (reason: 'timeout' | 'network' | 'server') => {
+    if (errorReported) return;
+    errorReported = true;
+    reportTelemetry(feature, reason, performance.now() - startedAt);
+  };
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => { state.reason = 'timeout'; controller.abort(); }, timeoutMs);
     const slowTimer = attempt === 0 && quick
-      ? window.setTimeout(() => pace(feature, 'slow'), SLOW_HINT_MS)
+      ? window.setTimeout(() => {
+        pace(feature, 'slow');
+        if (!slowReported) {
+          slowReported = true;
+          reportTelemetry(feature, 'slow', SLOW_HINT_MS);
+        }
+      }, SLOW_HINT_MS)
       : undefined;
     const signal = options.signal
       ? combineSignals([controller.signal, options.signal])
@@ -119,7 +144,10 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
         if (caught.status >= 500) state.reason = 'server';
         if (caught.status < 500 || attempt === retries) {
           // 服务端错误也算「服务连接错误」，同样带上功能名称；4xx 业务错误保留原文
-          if (caught.status >= 500) throw new ApiError(caught.status, `「${feature}」服务返回 ${caught.status}，请稍后重试`);
+          if (caught.status >= 500) {
+            emitError('server');
+            throw new ApiError(caught.status, `「${feature}」服务返回 ${caught.status}，请稍后重试`);
+          }
           throw caught;
         }
       } else if (attempt === retries && state.reason !== 'timeout') {
@@ -136,5 +164,6 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
   const detail = state.reason === 'timeout'
     ? `响应超时，已自动重试 ${retries} 次`
     : state.reason === 'server' ? '服务暂时不可用' : '服务连接失败';
+  emitError(state.reason);
   throw new ConnectionError(feature, state.reason, `「${feature}」${detail}，请稍后重试`);
 }
