@@ -165,7 +165,7 @@ button { cursor: pointer; }
 }
 
 .filter-tabs button:hover { color: #182230; }
-.filter-tabs button.active { border-color: #16734a; color: #182230; font-weight: 600; }
+.filter-tabs button.active { border-color: #16734a; color: #182230; }
 .filter-tabs b { margin-left: 4px; font-weight: 500; }
 
 .feed-tools {
@@ -192,7 +192,8 @@ button { cursor: pointer; }
 
 .feed-tools select:focus { border-color: #16734a; box-shadow: 0 0 0 2px rgb(22 115 74 / 10%); }
 
-.feed-list { min-height: 430px; }
+/* 列表至少撑满一屏：切换筛选后条目变少时页面不会突然缩短，避免分页器等元素上移造成布局抖动。 */
+.feed-list { min-height: max(430px, calc(100vh - 360px)); }
 
 .feed-row {
   position: relative;

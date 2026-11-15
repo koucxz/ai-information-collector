@@ -63,7 +63,7 @@
 .topic-tag.topic-tag-none { border-color: #e1e5ea; color: #8a94a4; background: #f5f6f8; }
 .topic-tag.is-placeholder, .topic-tag.is-empty { border-style: dashed; color: #8a94a4; background: #fff; }
 /* 选中的主题标签即当前筛选条件 */
-.topic-tag.is-active { border-color: #16734a; color: #fff; background: #16734a; font-weight: 600; }
+.topic-tag.is-active { border-color: #16734a; color: #fff; background: #16734a; box-shadow: inset 0 0 0 1px #16734a; }
 .topic-tag.is-active i { background: #d8f2e3; }
 .topic-tag.is-active em { opacity: .85; }
 .topic-tag.is-active:hover { border-color: #12613e; color: #fff; background: #12613e; }

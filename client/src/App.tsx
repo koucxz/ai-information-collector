@@ -80,6 +80,8 @@ function SignalDock() {
     setTopicFilter(topicId);
     setPage(1);
     if (activeView !== 'inbox') navigate('inbox');
+    // 列表整体换成另一批内容，先把视口拉回顶部：否则文档变短时浏览器会钳制 scrollTop，看起来像页面跳了一下。
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
   /** 勾选素材 → 新建文章草稿；草稿会带上这些原文链接，随后在「文章」里写正文。 */
   const createDraftFromItems = async (itemIds: string[]) => {
@@ -159,8 +161,11 @@ function SignalDock() {
     try {
       const list = (await request<{ data: Topic[] }>('/api/topics')).data;
       setTopics(list);
-      // 主题被删除后，不能再让列表停留在一个不存在的筛选值上
-      setTopicFilter((current) => current && !list.some((topic) => topic.id === current) ? '' : current);
+      // 主题被删除后，不能再让列表停留在一个不存在的筛选值上；
+      // 但 __none__（未分类）是虚拟主题、本来就不在 topics 里，必须原样保留。
+      setTopicFilter((current) =>
+        !current || current === '__none__' || list.some((topic) => topic.id === current) ? current : ''
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '主题加载失败');
     } finally {
@@ -178,17 +183,22 @@ function SignalDock() {
     }
   }, []);
 
+  // 只在挂载时加载一次基础数据。overview 依赖 topicFilter，单独放一个 effect——
+  // 否则每次切换筛选都会连带重跑 loadTopics，把 __none__ 这类虚拟主题误判成失效值并清空。
   useEffect(() => {
     void checkHealth();
     void loadTopics();
-    void loadOverview();
     void request<{ data: SourceOption[]; selected?: string[] }>('/api/collect/sources').then(({ data, selected }) => {
       setSources(data);
       // 设置页保存过的选择优先；没保存过才按默认勾选
       const saved = (selected ?? []).filter((id) => data.some((source) => source.id === id));
       setSelectedSources(saved.length ? saved : data.filter((source) => source.defaultOn !== false).map((source) => source.id));
     }).catch((caught) => setError(caught instanceof Error ? caught.message : '来源加载失败'));
-  }, [checkHealth, loadOverview, loadTopics]);
+  }, [checkHealth, loadTopics]);
+
+  useEffect(() => {
+    void loadOverview();
+  }, [loadOverview]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -464,7 +474,7 @@ function SignalDock() {
           onModeChange={changeMode}
           onSearchChange={value => { setSearchTerm(value); setPage(1); }}
           onSourceChange={(source) => { setSourceFilter(source); setPage(1); }}
-          onTopicChange={(topicId) => { setTopicFilter(topicId); setPage(1); }}
+          onTopicChange={selectTopic}
           onPageChange={setPage}
           onOpenSettings={() => navigate('manage')}
           selectedIds={selectedIds}
