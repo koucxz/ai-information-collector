@@ -413,6 +413,11 @@ button { cursor: pointer; }
 .keyword-input { width: calc(100% - 36px); margin: 8px 0 0 36px; }
 
 .digest-loading { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 150px; color: #667085; font-size: 12px; }
+
+/* 全局「加载中」提示：主标题点名功能，副行说明在等什么，避免只闪一句「加载中」 */
+.pace-notice { display: grid; gap: 1px; line-height: 1.5; }
+.pace-notice strong { color: #182230; font-size: 13px; font-weight: 600; }
+.pace-notice small { color: #667085; font-size: 11px; }
 .detail-modal > p { margin: 0; color: #7b8798; font-size: 11px; }
 .digest-sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .digest-sources .ant-tag { margin: 0; color: #40634f; background: #edf7f0; }

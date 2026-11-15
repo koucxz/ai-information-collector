@@ -5,13 +5,28 @@ export class ConnectionError extends Error {
   constructor(public feature: string, public reason: 'timeout' | 'network' | 'server', message: string) { super(message); }
 }
 
-export type RequestOptions = RequestInit & { feature?: string; timeoutMs?: number };
+export type RequestOptions = RequestInit & {
+  feature?: string;
+  timeoutMs?: number;
+  /** 后台请求（轮询、健康检查、预取）：不触发全局「加载中」提示 */
+  silent?: boolean;
+};
 
 const LOGIN_PATH = '/api/auth/login';
 const QUICK_TIMEOUT_MS = 7_000;
 const SLOW_TIMEOUT_MS = 120_000;
+/** 超过这个时长记为「慢连接」进看板统计，但不打扰用户 */
 const SLOW_HINT_MS = 2_500;
+/** 只有真的等了很久才弹「加载中」提示，页面本身的骨架屏先兜住 */
+const SLOW_NOTICE_MS = 4_000;
 const QUICK_RETRIES = 2;
+
+/**
+ * 允许弹全局「加载中」提示的功能：用户正在盯着等结果的三个主视图。
+ * 其余功能（概览计数、来源清单、设置页表格、写稿轮询……）页面自己有加载态，
+ * 弹出来只会变成看不懂的噪音，一律不提示。
+ */
+const NOTICE_FEATURES = new Set(['信息流', '收藏夹', '文章']);
 
 /** 从接口路径推断功能名，保证任何一条超时/连接错误都能带上「对应功能名称」。 */
 const PATH_FEATURES: Array<[RegExp, string]> = [
@@ -101,15 +116,16 @@ export function request<T>(url: string, options: RequestOptions = {}): Promise<T
   const readOnly = method === 'GET' || method === 'HEAD';
   const feature = featureOf(url, method, options.feature);
   const scope = paceScope;
+  const announce = !options.silent && NOTICE_FEATURES.has(feature);
   const key = method + ' ' + url;
   if (readOnly && !options.signal && inflight.has(key)) return inflight.get(key) as Promise<T>;
-  const task = run<T>(url, options, method, feature, scope).finally(() => { pace(scope, feature, 'done'); inflight.delete(key); });
+  const task = run<T>(url, options, method, feature, scope, announce).finally(() => { pace(scope, feature, 'done'); inflight.delete(key); });
   if (readOnly && !options.signal) inflight.set(key, task);
   return task;
 }
 
-async function run<T>(url: string, options: RequestOptions, method: string, feature: string, scope: string): Promise<T> {
-  const { feature: _feature, timeoutMs: _timeoutMs, ...init } = options;
+async function run<T>(url: string, options: RequestOptions, method: string, feature: string, scope: string, announce: boolean): Promise<T> {
+  const { feature: _feature, timeoutMs: _timeoutMs, silent: _silent, ...init } = options;
   const quick = method === 'GET' || method === 'HEAD' || url.startsWith(LOGIN_PATH);
   const timeoutMs = options.timeoutMs ?? (quick ? QUICK_TIMEOUT_MS : SLOW_TIMEOUT_MS);
   const retries = options.timeoutMs ? 0 : (quick ? QUICK_RETRIES : 0);
@@ -127,14 +143,16 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => { state.reason = 'timeout'; controller.abort(); }, timeoutMs);
-    const slowTimer = attempt === 0 && quick
+    // 留痕（2.5s）与提示（4s）分开：慢连接照样进看板，但只有主视图才弹「加载中」
+    const slowTimer = attempt === 0 && quick && !options.silent
       ? window.setTimeout(() => {
-        pace(scope, feature, 'slow');
-        if (!slowReported) {
-          slowReported = true;
-          reportTelemetry(feature, 'slow', SLOW_HINT_MS);
-        }
+        if (slowReported) return;
+        slowReported = true;
+        reportTelemetry(feature, 'slow', SLOW_HINT_MS);
       }, SLOW_HINT_MS)
+      : undefined;
+    const noticeTimer = attempt === 0 && announce
+      ? window.setTimeout(() => pace(scope, feature, 'slow'), SLOW_NOTICE_MS)
       : undefined;
     const signal = options.signal
       ? combineSignals([controller.signal, options.signal])
@@ -169,10 +187,12 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
       } else if (attempt === retries && state.reason !== 'timeout') {
         state.reason = 'network';
       }
-      if (attempt < retries) pace(scope, feature, 'retry');
+      // 重试事件只在会提示的功能上发，否则等于给后台请求也弹了「加载中」
+      if (attempt < retries && announce) pace(scope, feature, 'retry');
     } finally {
       window.clearTimeout(timer);
       if (slowTimer) window.clearTimeout(slowTimer);
+      if (noticeTimer) window.clearTimeout(noticeTimer);
     }
     await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
   }

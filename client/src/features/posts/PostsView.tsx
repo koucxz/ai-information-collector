@@ -125,7 +125,8 @@ export function PostsView(props: Props) {
     window.clearTimeout(writeTimer.current);
     const tick = async () => {
       try {
-        const { data } = await request<{ data: EditorialBrief }>('/api/briefs/' + id, { feature: '文章' });
+        // 轮询是后台行为，静默请求：不弹全局「加载中」，也不参与慢连接统计
+        const { data } = await request<{ data: EditorialBrief }>('/api/briefs/' + id, { feature: '写稿进度', silent: true });
         applyBriefs(briefsRef.current.map((item) => item.id === data.id ? data : item));
         if (data.writing) { writeTimer.current = window.setTimeout(() => void tick(), 2500); return; }
         if (currentIdRef.current === id && !dirtyRef.current) { setDraft(data); setBase(data); }

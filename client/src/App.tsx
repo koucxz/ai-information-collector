@@ -10,7 +10,7 @@ import { TopicTagBar } from './features/topics/TopicTagBar';
 import { SettingsPage } from './features/settings/SettingsPage';
 import type { SettingsView } from './features/settings/SettingsPage';
 import { ApiError, request, setPaceScope } from './shared/api';
-import { useApiNotice } from './shared/notify';
+import { useApiNotice, usePaceNotice } from './shared/notify';
 import { splitInput } from './shared/format';
 import type {
   CollectionEvent, CollectionResult, Digest, EditingValue, FeedbackValue,
@@ -24,6 +24,8 @@ import type { EditorialBrief, WorkspaceView } from './shared/types';
 function SignalDock() {
   const { modal } = AntApp.useApp();
   const notice = useApiNotice();
+  // 加载提示只在主视图等很久时才出现，整个应用挂这一次就够
+  usePaceNotice();
   // 错误统一走 antd 轻提示；api 层的连接错误已自带「功能名称」
   const setError = notice.error;
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('checking');
@@ -529,7 +531,7 @@ function App() {
         }
       }}
     >
-      <AntApp>{authState === 'checking' ? <div className="auth-loading-shell" role="status" aria-label="加载中"><Spin size="large" /></div> : authState === 'authenticated' ? <SignalDock /> : <LoginView onLogin={() => setAuthState('authenticated')} />}</AntApp>
+      <AntApp message={{ top: 78, maxCount: 3 }}>{authState === 'checking' && <div className="auth-loading-shell" role="status" aria-label="加载中"><Spin size="large" /></div>}{authState === 'authenticated' ? <SignalDock /> : authState === 'anonymous' ? <LoginView onLogin={() => setAuthState('authenticated')} /> : null}</AntApp>
     </ConfigProvider>
   );
 }
