@@ -15,10 +15,8 @@ export type RequestOptions = RequestInit & {
 const LOGIN_PATH = '/api/auth/login';
 const QUICK_TIMEOUT_MS = 7_000;
 const SLOW_TIMEOUT_MS = 120_000;
-/** 超过这个时长记为「慢连接」进看板统计，但不打扰用户 */
+/** 超过这个时长：记一次慢连接进看板，如果属于主视图再弹「加载中」提示 */
 const SLOW_HINT_MS = 2_500;
-/** 只有真的等了很久才弹「加载中」提示，页面本身的骨架屏先兜住 */
-const SLOW_NOTICE_MS = 4_000;
 const QUICK_RETRIES = 2;
 
 /**
@@ -143,16 +141,15 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => { state.reason = 'timeout'; controller.abort(); }, timeoutMs);
-    // 留痕（2.5s）与提示（4s）分开：慢连接照样进看板，但只有主视图才弹「加载中」
-    const slowTimer = attempt === 0 && quick && !options.silent
+    // 2.5 秒还没回来：后台请求只留痕，主视图才真的弹「加载中」提示
+    const slowTimer = attempt === 0 && quick
       ? window.setTimeout(() => {
-        if (slowReported) return;
-        slowReported = true;
-        reportTelemetry(feature, 'slow', SLOW_HINT_MS);
+        if (!options.silent && !slowReported) {
+          slowReported = true;
+          reportTelemetry(feature, 'slow', SLOW_HINT_MS);
+        }
+        if (announce) pace(scope, feature, 'slow');
       }, SLOW_HINT_MS)
-      : undefined;
-    const noticeTimer = attempt === 0 && announce
-      ? window.setTimeout(() => pace(scope, feature, 'slow'), SLOW_NOTICE_MS)
       : undefined;
     const signal = options.signal
       ? combineSignals([controller.signal, options.signal])
@@ -192,7 +189,6 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
     } finally {
       window.clearTimeout(timer);
       if (slowTimer) window.clearTimeout(slowTimer);
-      if (noticeTimer) window.clearTimeout(noticeTimer);
     }
     await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
   }
