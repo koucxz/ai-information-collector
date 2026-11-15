@@ -9,6 +9,11 @@ export type StoredInformation = SearchResult & { id: string; eventKey: string; i
 export type FeedOptions = { source?: string; unread?: boolean; saved?: boolean; archived?: boolean; query?: string; minImportance?: number; minRelevance?: number; topicWords?: string[]; topicId?: string; unclassified?: boolean; sort?: 'latest' | 'importance' | 'personalized'; page: number; pageSize: number };
 export type FeedOverview = { all: number; unread: number; relevant: number; globalAll: number; globalUnread: number; topicCounts: Record<string, number>; unclassified: number };
 
+const OVERVIEW_TTL_MS = 15_000;
+const overviewCache = new Map<string, { value: FeedOverview; expiresAt: number }>();
+/** 概览依赖的写操作后调用，避免 15s 内读到过期计数。 */
+export const invalidateOverviewCache = () => { overviewCache.clear(); };
+
 /**
  * 主题筛选与「未分类」完全以打标表为准：采集查询词只是打标时的加分项，
  * 不再直接当分类用，避免搜索噪声混进主题、主题计数和列表对不上。
@@ -44,8 +49,9 @@ export const titleSimilarity = (left: string, right: string) => {
   return intersection / Math.min(leftTokens.size, rightTokens.size);
 };
 export const eventKeyFor = (title: string) => createHash('sha256').update(canonicalTitle(title)).digest('hex').slice(0, 24);
-const resolveEventKey = (title: string) => {
-  const recent = db.prepare('SELECT title, event_key FROM information_items ORDER BY collected_at DESC LIMIT 200').all() as unknown as Array<{ title: string; event_key: string }>;
+type RecentEvent = { title: string; event_key: string };
+/** recent 由 saveResults 一次性预取并复用，避免每条结果都查一次最近 200 条。 */
+const resolveEventKey = (title: string, recent: RecentEvent[]) => {
   let match: { key: string; score: number } | undefined;
   for (const item of recent) {
     const score = titleSimilarity(title, item.title);
@@ -98,22 +104,35 @@ export const informationStore = {
   },
   saveResults(results: SearchResult[]) {
     const insert = db.prepare('INSERT OR IGNORE INTO information_items (id, source, source_name, keyword, title, summary, content, url, published_at, collected_at, fingerprint, dedupe_key, event_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const update = db.prepare('UPDATE information_items SET source_name = ?, keyword = ?, title = ?, summary = ?, content = ?, url = ?, published_at = ?, collected_at = ?, fingerprint = ?, event_key = ?, updated_at = ? WHERE source = ? AND dedupe_key = ?');
+    const findId = db.prepare('SELECT id FROM information_items WHERE source = ? AND dedupe_key = ?');
+    // 只查一次最近 200 条并复用；新写入的条目追加进数组，保留「同批次相似标题合并到同一事件」的原有语义
+    const recent = db.prepare('SELECT title, event_key FROM information_items ORDER BY collected_at DESC LIMIT 200').all() as unknown as RecentEvent[];
+    const idsToRetag = new Set<string>();
     let saved = 0;
-    for (const item of results) {
-      const timestamp = new Date().toISOString();
-      const normalizedUrl = normalizeUrl(item.url);
-      const dedupeKey = dedupeKeyFor(item);
-      const eventKey = resolveEventKey(item.title);
-      const result = insert.run(randomUUID(), item.source, item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, dedupeKey, eventKey, timestamp, timestamp);
-      saved += Number(result.changes);
-      db.prepare('UPDATE information_items SET source_name = ?, keyword = ?, title = ?, summary = ?, content = ?, url = ?, published_at = ?, collected_at = ?, fingerprint = ?, event_key = ?, updated_at = ? WHERE source = ? AND dedupe_key = ?').run(item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, eventKey, timestamp, item.source, dedupeKey);
-      const stored = db.prepare('SELECT id FROM information_items WHERE source = ? AND dedupe_key = ?').get(item.source, dedupeKey) as { id: string } | undefined;
-      if (stored) {
-        const current = this.findById(stored.id);
-        if (current) this.indexItem(current);
-        retagItem(stored.id);
+    db.exec('BEGIN');
+    try {
+      for (const item of results) {
+        const timestamp = new Date().toISOString();
+        const normalizedUrl = normalizeUrl(item.url);
+        const dedupeKey = dedupeKeyFor(item);
+        const eventKey = resolveEventKey(item.title, recent);
+        const result = insert.run(randomUUID(), item.source, item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, dedupeKey, eventKey, timestamp, timestamp);
+        saved += Number(result.changes);
+        update.run(item.sourceName, item.keyword, item.title, item.summary, item.content, normalizedUrl, item.publishedAt, item.collectedAt, item.fingerprint, eventKey, timestamp, item.source, dedupeKey);
+        const stored = findId.get(item.source, dedupeKey) as { id: string } | undefined;
+        if (stored) {
+          const current = this.findById(stored.id);
+          if (current) this.indexItem(current);
+          idsToRetag.add(stored.id);
+        }
+        recent.push({ title: item.title, event_key: eventKey });
       }
-    }
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
+    // retagItem 可能触发全量重打标，放在事务之外，先收集 id 再统一调用
+    for (const id of idsToRetag) retagItem(id);
+    invalidateOverviewCache();
     return { saved, duplicates: results.length - saved };
   },
   list() { return (db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} ORDER BY collected_at DESC`).all() as unknown as Record<string, unknown>[]).map(mapRow); },
@@ -142,6 +161,10 @@ export const informationStore = {
     return { data: rows.map((row) => mapFeedRow(row, tagMap.get(String(row.id)))), page: options.page, pageSize: options.pageSize, total, totalPages: Math.ceil(total / options.pageSize) };
   },
   overview(topicWords?: string[], topicId?: string, unclassified?: boolean): FeedOverview {
+    // topicWords 不参与筛选（主题筛选完全以打标表为准），缓存 key 只需 topicId 与 unclassified
+    const key = `${topicId ?? ''}|${unclassified ? 1 : 0}`;
+    const cached = overviewCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
     const filter = topicCondition(topicWords, topicId, unclassified);
     const where = `WHERE information_items.is_archived = 0${filter.sql ? ` AND ${filter.sql}` : ''}`;
     const row = db.prepare(`SELECT COUNT(*) AS total,
@@ -162,18 +185,21 @@ export const informationStore = {
       topicCounts[tag.topicId] += 1;
       taggedIds.add(tag.itemId);
     }
-    return { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant), globalAll: Number(globalRow.total), globalUnread: Number(globalRow.unread), topicCounts, unclassified: Math.max(0, Number(globalRow.total) - taggedIds.size) };
+    const value: FeedOverview = { all: Number(row.total), unread: Number(row.unread), relevant: Number(row.relevant), globalAll: Number(globalRow.total), globalUnread: Number(globalRow.unread), topicCounts, unclassified: Math.max(0, Number(globalRow.total) - taggedIds.size) };
+    overviewCache.set(key, { value, expiresAt: Date.now() + OVERVIEW_TTL_MS });
+    return value;
   },
   findById(id: string) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.id = ?`).get(id) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
   findByResult(item: Pick<SearchResult, 'source' | 'url' | 'fingerprint'>) { const row = db.prepare(`SELECT ${feedbackSelect} FROM information_items ${feedbackJoin} WHERE information_items.source = ? AND information_items.dedupe_key = ?`).get(item.source, dedupeKeyFor(item)) as unknown as Record<string, unknown> | undefined; return row ? mapRow(row) : undefined; },
-  setRead(id: string, isRead = true) { return db.prepare('UPDATE information_items SET is_read = ?, updated_at = ? WHERE id = ?').run(isRead ? 1 : 0, new Date().toISOString(), id).changes > 0; },
+  setRead(id: string, isRead = true) { const changed = db.prepare('UPDATE information_items SET is_read = ?, updated_at = ? WHERE id = ?').run(isRead ? 1 : 0, new Date().toISOString(), id).changes > 0; invalidateOverviewCache(); return changed; },
   markRead(id: string) { return this.setRead(id, true); },
-  setSaved(id: string, isSaved: boolean) { return db.prepare('UPDATE information_items SET is_saved = ?, updated_at = ? WHERE id = ?').run(isSaved ? 1 : 0, new Date().toISOString(), id).changes > 0; },
-  setArchived(id: string, isArchived: boolean) { return db.prepare('UPDATE information_items SET is_archived = ?, updated_at = ? WHERE id = ?').run(isArchived ? 1 : 0, new Date().toISOString(), id).changes > 0; },
+  setSaved(id: string, isSaved: boolean) { const changed = db.prepare('UPDATE information_items SET is_saved = ?, updated_at = ? WHERE id = ?').run(isSaved ? 1 : 0, new Date().toISOString(), id).changes > 0; invalidateOverviewCache(); return changed; },
+  setArchived(id: string, isArchived: boolean) { const changed = db.prepare('UPDATE information_items SET is_archived = ?, updated_at = ? WHERE id = ?').run(isArchived ? 1 : 0, new Date().toISOString(), id).changes > 0; invalidateOverviewCache(); return changed; },
   setFeedback(id: string, value: FeedbackValue) {
     if (!db.prepare('SELECT id FROM information_items WHERE id = ?').get(id)) return undefined;
     const timestamp = new Date().toISOString();
     db.prepare('INSERT INTO information_feedback (item_id, value, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(item_id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').run(id, value, timestamp, timestamp);
+    invalidateOverviewCache();
     return this.findById(id);
   },
   event(id: string) {
@@ -182,6 +208,6 @@ export const informationStore = {
     const timestamps = sources.map((source) => source.collectedAt).sort();
     return { eventKey: item.eventKey, title: item.title, firstSeenAt: timestamps[0], lastSeenAt: timestamps.at(-1), sourceCount: new Set(sources.map((source) => source.source)).size, sources };
   },
-  updateAnalysis(id: string, analysis: { relevanceScore: number; importanceScore: number; summary: string; reason: string; provider: string }) { db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?').run(analysis.relevanceScore, analysis.importanceScore, analysis.provider, analysis.summary, analysis.reason, new Date().toISOString(), id); const item = this.findById(id); if (item) this.indexItem(item); return item; },
+  updateAnalysis(id: string, analysis: { relevanceScore: number; importanceScore: number; summary: string; reason: string; provider: string }) { db.prepare('UPDATE information_items SET relevance_score = ?, importance_score = ?, ai_status = ?, analysis_summary = ?, analysis_reason = ?, updated_at = ? WHERE id = ?').run(analysis.relevanceScore, analysis.importanceScore, analysis.provider, analysis.summary, analysis.reason, new Date().toISOString(), id); const item = this.findById(id); if (item) this.indexItem(item); invalidateOverviewCache(); return item; },
   eventKeyFor
 };

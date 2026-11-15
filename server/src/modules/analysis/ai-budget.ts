@@ -2,6 +2,44 @@ import { env } from '../../config/env.js';
 import { db } from '../../db/client.js';
 
 let active = 0;
+const AI_QUEUE_LIMIT = 50;
+const AI_WAIT_TIMEOUT_MS = 30_000;
+
+type SlotWaiter = { settled: boolean; resolve: () => void; timer: ReturnType<typeof setTimeout> };
+const slotWaiters: SlotWaiter[] = [];
+
+/** 释放槽位：优先直接交给队列里第一个仍有效的等待者（active 不变），没有有效等待者才减一。 */
+const releaseSlot = () => {
+  while (slotWaiters.length) {
+    const waiter = slotWaiters.shift()!;
+    if (waiter.settled) continue;
+    waiter.settled = true;
+    clearTimeout(waiter.timer);
+    waiter.resolve();
+    return;
+  }
+  active -= 1;
+};
+
+/** 并发信号量：到达 env.AI_CONCURRENCY 后排队等待而非硬拒绝；队列上限 50，等待超时 30s 抛原有文案。 */
+export const acquireSlot = (): Promise<void> => {
+  if (active < env.AI_CONCURRENCY) { active += 1; return Promise.resolve(); }
+  if (slotWaiters.length >= AI_QUEUE_LIMIT) return Promise.reject(new Error('AI 并发上限已达到'));
+  return new Promise<void>((resolve, reject) => {
+    const waiter: SlotWaiter = {
+      settled: false,
+      resolve: () => resolve(),
+      timer: setTimeout(() => {
+        if (waiter.settled) return;
+        waiter.settled = true;
+        const index = slotWaiters.indexOf(waiter);
+        if (index !== -1) slotWaiters.splice(index, 1);
+        reject(new Error('AI 并发上限已达到'));
+      }, AI_WAIT_TIMEOUT_MS)
+    };
+    slotWaiters.push(waiter);
+  });
+};
 
 // 额度按北京时间换天：容器里 TZ 可能是 UTC，用本地日期会在早上 8 点莫名其妙重置
 export const budgetDay = (): string => {
@@ -70,10 +108,11 @@ export const assertTokenRoom = (estimate: number): void => {
 
 // One shared pool covers collection analysis, manual analysis and batch proposals.
 export async function withAiBudget<T>(execute: () => Promise<T>): Promise<T> {
-  if (active >= env.AI_CONCURRENCY) throw new Error('AI 并发上限已达到');
-  aiTokenUsage.assert();
-  const reserved = db.prepare('INSERT INTO ai_usage (day, count) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count').get(today(), env.AI_DAILY_LIMIT);
-  if (!reserved) throw new Error('今日 AI 请求额度已用完');
-  active += 1;
-  try { return await execute(); } finally { active -= 1; }
+  await acquireSlot();
+  try {
+    aiTokenUsage.assert();
+    const reserved = db.prepare('INSERT INTO ai_usage (day, count) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count').get(today(), env.AI_DAILY_LIMIT);
+    if (!reserved) throw new Error('今日 AI 请求额度已用完');
+    return await execute();
+  } finally { releaseSlot(); }
 }

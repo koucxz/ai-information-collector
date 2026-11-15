@@ -24,5 +24,6 @@ export const historyStore = {
     }
     return { snapshots, changes };
   },
-  listChanges() { return db.prepare('SELECT id, item_id AS itemId, change_type AS changeType, summary, created_at AS createdAt FROM information_changes ORDER BY created_at DESC').all(); }
+  // created_at 只有毫秒精度，写入提速后同一毫秒可能有多条变更；rowid 兜底保证「最新插入的排前面」稳定可预期
+  listChanges() { return db.prepare('SELECT id, item_id AS itemId, change_type AS changeType, summary, created_at AS createdAt FROM information_changes ORDER BY created_at DESC, rowid DESC').all(); }
 };

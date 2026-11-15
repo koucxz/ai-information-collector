@@ -17,7 +17,8 @@ describe('GET /api/health', () => {
       .set('Origin', 'http://localhost:5173');
 
     expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
-    expect(response.headers['ratelimit-limit']).toBe('120');
+    // 限流分级后健康检查豁免全局限流，不再挂 RateLimit 头（读接口为 600/min、写接口 120/min）
+    expect(response.headers['ratelimit-limit']).toBeUndefined();
   });
 
   it('returns a stable JSON response for unknown routes', async () => {

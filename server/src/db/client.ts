@@ -13,6 +13,8 @@ const databasePath = isAbsolute(filePath) ? filePath : resolve(process.cwd(), fi
 mkdirSync(dirname(databasePath), { recursive: true });
 
 export const db = new DatabaseSync(databasePath);
+// 并发读写下减少锁竞争：WAL 让读不阻塞写，NORMAL 降低 fsync 频率，busy_timeout 避免瞬时锁直接报错
+db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;');
 migrateLegacyCollectionRuns(db);
 db.exec(`
   PRAGMA foreign_keys = ON;
@@ -61,9 +63,14 @@ ensureColumn('topics', 'notification_level', "TEXT NOT NULL DEFAULT 'important'"
 ensureColumn('topics', 'description', "TEXT NOT NULL DEFAULT ''");
 db.exec('CREATE INDEX IF NOT EXISTS information_saved_idx ON information_items(is_saved, is_archived, collected_at);');
 db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS information_search USING fts5(item_id UNINDEXED, title, summary, content, analysis_summary, keyword, source_name);`);
-db.exec(`DELETE FROM information_search;
-  INSERT INTO information_search (item_id, title, summary, content, analysis_summary, keyword, source_name)
-  SELECT id, title, summary, content, analysis_summary, keyword, source_name FROM information_items;`);
+// 运行时 indexItem 会让 FTS 与业务表保持同步；只有行数不一致（如崩溃后遗留）才全量重建，省掉每次启动的 DELETE+INSERT 大表扫描
+const searchCount = Number((db.prepare('SELECT COUNT(*) AS count FROM information_search').get() as { count: number }).count);
+const itemsCount = Number((db.prepare('SELECT COUNT(*) AS count FROM information_items').get() as { count: number }).count);
+if (searchCount !== itemsCount) {
+  db.exec(`DELETE FROM information_search;
+    INSERT INTO information_search (item_id, title, summary, content, analysis_summary, keyword, source_name)
+    SELECT id, title, summary, content, analysis_summary, keyword, source_name FROM information_items;`);
+}
 
 const now = () => new Date().toISOString();
 const parseList = (value: string) => JSON.parse(value) as string[];

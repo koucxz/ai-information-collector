@@ -15,6 +15,9 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { requireAuth } from './auth.js';
 import { briefRouter } from './modules/briefs/brief.routes.js';
 import { telemetryRouter } from './modules/telemetry/telemetry.routes.js';
+import { collectionRunner } from './modules/automation/collection.scheduler.js';
+import { resolveCollectionSources } from './modules/collection/source.registry.js';
+import { jobQueue } from './modules/jobs/job.queue.js';
 import { ensureTopicTags } from './modules/collection/topic-tagger.js';
 
 export const app = express();
@@ -42,7 +45,21 @@ app.use('/api/data/restore', requireAuth, express.json({ limit: '20mb' }));
 app.use(express.json({ limit: '256kb' }));
 // 连接质量上报必须在鉴权与业务限流之前：未登录和链路故障时的超时也要能记录
 app.use('/api/telemetry', telemetryRouter);
-app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, message: { error: '请求过于频繁，请稍后再试' } }));
+// 轻量慢请求计时：只对超过 500ms 的请求打一行 JSON，正常请求不产生日志
+app.use((request, response, next) => {
+  const startedAt = Date.now();
+  response.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > 500) console.warn(JSON.stringify({ method: request.method, path: request.path, status: response.statusCode, duration_ms: durationMs }));
+  });
+  next();
+});
+const isWriteMethod = (method: string) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+const rateLimitMessage = { error: '请求过于频繁，请稍后再试' };
+// 读接口放宽到 600/min；健康检查与上报端点豁免，写方法交给下面的写限流器
+app.use(rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: true, skip: (request) => request.path === '/api/health' || request.path.startsWith('/api/telemetry') || isWriteMethod(request.method), message: rateLimitMessage }));
+// 写操作单独限流 120/min，放在业务路由之前
+app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, skip: (request) => !isWriteMethod(request.method), message: rateLimitMessage }));
 
 app.get('/api/health', (_request, response) => {
   response.json({
@@ -55,6 +72,20 @@ app.get('/api/health', (_request, response) => {
 app.use('/api/auth', authRouter);
 app.use('/api', requireAuth);
 app.use('/api', (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
+// 后台任务状态与异步采集：与既有采集路由共享同一套鉴权与限流
+app.get('/api/jobs/:id', (request, response) => {
+  const job = jobQueue.get(request.params.id);
+  if (!job) return response.status(404).json({ error: '任务不存在' });
+  return response.json({ data: job });
+});
+app.post('/api/collect/async', (request, response) => {
+  const sources = Array.isArray(request.body?.sources)
+    ? request.body.sources.filter((source: unknown): source is string => typeof source === 'string')
+    : resolveCollectionSources();
+  if (!sources.length) return response.status(400).json({ error: '至少选择一个信息源' });
+  const job = jobQueue.enqueue(() => collectionRunner.trigger(sources));
+  return response.json({ data: { job_id: job.job_id, status: 'queued' } });
+});
 app.use('/api/briefs', briefRouter);
 
 app.use('/api/topics', topicRouter);

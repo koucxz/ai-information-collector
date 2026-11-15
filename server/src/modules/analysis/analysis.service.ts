@@ -6,6 +6,18 @@ import { aiTokenUsage, usageTokens, withAiBudget } from './ai-budget.js';
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
+// 简单熔断：连续 5 次 LLM 调用失败后 30s 内直接兜底、不再发请求；一次成功即清零
+const AI_FAILURE_THRESHOLD = 5;
+const AI_BREAKER_WINDOW_MS = 30_000;
+let consecutiveAiFailures = 0;
+let breakerUntil = 0;
+const recordAiFailure = () => {
+  consecutiveAiFailures += 1;
+  if (consecutiveAiFailures >= AI_FAILURE_THRESHOLD) breakerUntil = Date.now() + AI_BREAKER_WINDOW_MS;
+};
+const resetAiFailures = () => { consecutiveAiFailures = 0; breakerUntil = 0; };
+const breakerOpen = () => Date.now() < breakerUntil;
+
 export const fallbackAnalyze = (item: AnalyzableInformation, error?: string): AnalysisResult => {
   const text = `${item.title} ${item.summary} ${item.content}`;
   // 用中英双语匹配：外文来源的关键词命中不该因为写成英文就被判成低相关
@@ -29,6 +41,11 @@ export const analyzeInformation = async (item: AnalyzableInformation): Promise<A
     analysisCallStore.record({ itemId: item.id, provider: 'fallback', status: 'fallback', attempts: 0, durationMs: 0, error: result.error });
     return result;
   }
+  if (breakerOpen()) {
+    const result = fallbackAnalyze(item, 'AI 服务连续失败，已暂时熔断');
+    analysisCallStore.record({ itemId: item.id, provider: 'fallback', status: 'fallback', attempts: 0, durationMs: 0, error: result.error });
+    return result;
+  }
   const startedAt = Date.now();
   let lastError = 'AI 请求失败';
   for (let attempt = 0; attempt <= env.AI_MAX_RETRIES; attempt += 1) {
@@ -45,11 +62,14 @@ export const analyzeInformation = async (item: AnalyzableInformation): Promise<A
       const content = payload.choices?.[0]?.message?.content;
       if (!content) throw new Error('AI 返回内容为空');
       const result = { ...parseModelContent(content), provider: 'ai' as const };
+      resetAiFailures();
       analysisCallStore.record({ itemId: item.id, provider: 'ai', status: 'success', attempts: attempt + 1, durationMs: Date.now() - startedAt });
       return result;
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;
+      // 配额 / 并发属于本地拒绝，没有真正调用模型，不计入连续失败
       if (/额度|并发/.test(lastError)) break;
+      recordAiFailure();
       if (attempt < env.AI_MAX_RETRIES) await new Promise((resolve) => setTimeout(resolve, 250 * (2 ** attempt)));
     } finally { clearTimeout(timeout); }
   }
