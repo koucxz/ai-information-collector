@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card, Empty, Input, Progress, Select, Space, Table, Tag, message } from 'antd';
 import { Download, ExternalLink, Plus, Send, Upload } from 'lucide-react';
 import { request } from '../../shared/api';
+import { API_BASE, getToken } from '../../shared/config';
 
 export type OperationView = 'events' | 'runs' | 'sources' | 'notifications' | 'settings';
 type OperationProps = { view: OperationView; onError: (value: string) => void };
@@ -34,7 +35,31 @@ export function OperationsView(props: OperationProps) {
 type AiUsage = { day: string; tokens: number; tokenLimit: number; remaining: number; requests: number; requestLimit: number; model: string };
 
 function SettingsView(props: { onError: (value: string) => void }) {
-  const download = (format: string) => { window.open(`/api/data/export?format=${format}`, '_blank', 'noopener,noreferrer'); };
+  // 用带认证的请求取 blob 再触发下载：cookie 在跨站时不可用，token 只能放 Authorization 头，绝不拼进 URL 明文。
+  const download = async (format: string) => {
+    try {
+      const token = getToken();
+      const response = await fetch(API_BASE + '/api/data/export?format=' + encodeURIComponent(format), {
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error(`导出失败 (${response.status})`);
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition');
+      const match = disposition?.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] ?? (format === 'csv' ? 'signaldock-information.csv' : 'signaldock-backup.json');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      props.onError(error instanceof Error ? error.message : '「数据管理」导出失败，请稍后重试');
+    }
+  };
   const [usage, setUsage] = useState<AiUsage | null>(null);
   const loadUsage = async () => {
     try { setUsage((await request<{ data: AiUsage }>('/api/ai/usage', { feature: 'AI 用量' })).data); }

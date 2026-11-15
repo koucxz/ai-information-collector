@@ -34,7 +34,7 @@ app.use((_request, response, next) => {
   if (env.NODE_ENV === 'production') response.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
-app.use(cors({ origin: env.CLIENT_URL, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] }));
+app.use(cors({ origin: env.CLIENT_URL, credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'], methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] }));
 app.use((request, response, next) => {
   const origin = request.get('Origin');
   if (origin && !['GET', 'HEAD', 'OPTIONS'].includes(request.method) && origin !== env.CLIENT_URL) return response.status(403).json({ error: '请求来源不受信任' });

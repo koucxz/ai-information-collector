@@ -12,8 +12,9 @@ authRouter.post('/login', loginLimiter, (request, response) => {
   if (!login(username, password)) return response.status(401).json({ error: '用户名或密码错误' });
   const previous = sessionFromRequest(request);
   if (previous) revokeSession(previous);
-  setSessionCookie(response, createSessionToken(username));
-  return response.json({ data: { username } });
+  const token = createSessionToken(username);
+  setSessionCookie(response, token);
+  return response.json({ data: { username, token } });
 });
 
 authRouter.get('/me', (request, response) => {

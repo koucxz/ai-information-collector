@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Alert, Button, Input } from 'antd';
 import { request } from '../shared/api';
+import { setToken } from '../shared/config';
 import { Compass, ListChecks, LockKeyhole, NotebookPen, Radar, ShieldCheck } from 'lucide-react';
 
 const DEFAULT_USERNAME = 'admin';
@@ -17,7 +18,8 @@ export function LoginView({ onLogin }: { onLogin: () => void }) {
     setLoading(true);
     setError('');
     try {
-      await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      const payload = await request<{ data: { username: string; token?: string } }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      if (payload?.data?.token) setToken(payload.data.token);
       onLogin();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '「登录」失败，请稍后重试');

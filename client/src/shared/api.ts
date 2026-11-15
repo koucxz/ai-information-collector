@@ -1,3 +1,6 @@
+import { API_BASE, getToken, clearToken } from './config';
+export { API_BASE } from './config';
+
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
 /** 连接类错误自带功能名称，任何调用方都能直接把 message 交给 UI 提示。 */
@@ -86,7 +89,7 @@ function reportTelemetry(feature: string, reason: 'timeout' | 'network' | 'serve
   try {
     if (typeof navigator === 'undefined' || !navigator.sendBeacon) return;
     const body = JSON.stringify({ feature, reason, ms: Math.round(ms), origin: window.location.host });
-    navigator.sendBeacon('/api/telemetry', new Blob([body], { type: 'application/json' }));
+    navigator.sendBeacon(API_BASE + '/api/telemetry', new Blob([body], { type: 'application/json' }));
   } catch {
     // 忽略：链路故障时上报本身也可能失败
   }
@@ -155,16 +158,22 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
       ? combineSignals([controller.signal, options.signal])
       : controller.signal;
     try {
-      const response = await fetch(url, {
+      const target = url.startsWith('/api/') ? API_BASE + url : url;
+      const token = getToken();
+      const response = await fetch(target, {
         ...init,
         credentials: 'include',
         signal,
         headers: {
           ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
           ...init.headers
         }
       });
-      if (response.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event('signaldock:unauthorized'));
+      if (response.status === 401) {
+        clearToken();
+        if (!url.startsWith('/api/auth/')) window.dispatchEvent(new Event('signaldock:unauthorized'));
+      }
       const payload = response.status === 204 ? null : await response.json() as { error?: string };
       if (!response.ok) throw new ApiError(response.status, payload?.error ?? '操作失败');
       return payload as T;

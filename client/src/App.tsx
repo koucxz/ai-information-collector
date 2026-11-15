@@ -10,6 +10,7 @@ import { TopicTagBar } from './features/topics/TopicTagBar';
 import { SettingsPage } from './features/settings/SettingsPage';
 import type { SettingsView } from './features/settings/SettingsPage';
 import { ApiError, request, setPaceScope } from './shared/api';
+import { API_BASE, getToken, clearToken } from './shared/config';
 import { useApiNotice, usePaceNotice } from './shared/notify';
 import { splitInput } from './shared/format';
 import type {
@@ -196,7 +197,7 @@ function SignalDock() {
   }, [loadFeed]);
 
   useEffect(() => {
-    const socket = io({ withCredentials: true });
+    const socket = io(API_BASE || undefined, { withCredentials: true, auth: { token: getToken() || '' } });
     socket.on('collection:status', (event: CollectionEvent) => {
       if (event.status === 'failed') setError('「采集任务」' + (event.error ?? '执行失败'));
       if (event.status === 'completed') {
@@ -431,7 +432,7 @@ function SignalDock() {
         onNavigate={navigate}
         onLogout={() => {
           void request('/api/auth/logout', { method: 'POST' })
-            .then(() => window.dispatchEvent(new Event('signaldock:unauthorized')))
+            .then(() => { clearToken(); window.dispatchEvent(new Event('signaldock:unauthorized')); })
             .catch(caught => setError(caught instanceof Error ? caught.message : '退出失败'));
         }}
       />

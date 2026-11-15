@@ -47,7 +47,26 @@ const parseCookies = (header: string | undefined) => Object.fromEntries((header 
   return separator < 0 ? [part, ''] : [part.slice(0, separator), safeDecode(part.slice(separator + 1))];
 }));
 
-export const sessionFromRequest = (request: Request) => verifySessionToken(parseCookies(request.headers.cookie)[COOKIE_NAME]);
+/**
+ * 统一凭证解析：cookie 优先、Bearer 其次、query.token 兜底（供 window.open 式下载链接）。
+ * realtime.ts 会传入只有 headers 的伪 Request，query 可能不存在，故所有可选字段都走可选链。
+ * 三者任一能验证通过即返回会话，保证源站直连(cookie)与 Vercel 直连(Bearer)共用同一套鉴权。
+ */
+export const sessionFromRequest = (request: Request) => {
+  const headers = request.headers ?? ({} as Request['headers']);
+  const cookieToken = parseCookies(headers.cookie)[COOKIE_NAME];
+  const authorization = headers.authorization;
+  const bearerToken = typeof authorization === 'string' && /^Bearer\s+/i.test(authorization)
+    ? authorization.replace(/^Bearer\s+/i, '').trim()
+    : undefined;
+  const queryTokenRaw = (request as Request & { query?: { token?: unknown } }).query?.token;
+  const queryToken = typeof queryTokenRaw === 'string' ? queryTokenRaw : undefined;
+  for (const token of [cookieToken, bearerToken, queryToken]) {
+    const session = verifySessionToken(token);
+    if (session) return session;
+  }
+  return undefined;
+};
 export const revokeSession = (session: Session) => {
   db.prepare('DELETE FROM auth_sessions WHERE nonce = ?').run(session.nonce);
   sessionEvents.emit('revoked', session.nonce);
