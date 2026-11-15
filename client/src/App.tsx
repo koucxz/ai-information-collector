@@ -9,7 +9,7 @@ import { InboxView } from './features/inbox/InboxView';
 import { TopicTagBar } from './features/topics/TopicTagBar';
 import { SettingsPage } from './features/settings/SettingsPage';
 import type { SettingsView } from './features/settings/SettingsPage';
-import { ApiError, request } from './shared/api';
+import { ApiError, request, setPaceScope } from './shared/api';
 import { useApiNotice } from './shared/notify';
 import { splitInput } from './shared/format';
 import type {
@@ -53,6 +53,8 @@ function SignalDock() {
   const digestCache = useRef<{ data: Digest; at: number } | null>(null);
   const sourceSaveTimer = useRef<number | undefined>(undefined);
   const [activeView, setActiveView] = useState<WorkspaceView>('inbox');
+  // 同步绑定请求所属的页面，保证本次渲染及其子组件发起的请求都归属当前页
+  setPaceScope(activeView);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [briefId, setBriefId] = useState('');

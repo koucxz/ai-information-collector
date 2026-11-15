@@ -53,8 +53,19 @@ function featureOf(url: string, method: string, explicit?: string): string {
 }
 
 type PacePhase = 'slow' | 'retry' | 'done';
-const pace = (feature: string, phase: PacePhase) => {
-  window.dispatchEvent(new CustomEvent('signaldock:request-pace', { detail: { feature, phase } }));
+
+/** 页面作用域：请求发起时绑定，切页后旧页面未完成请求的提示不再出现。 */
+export const PACE_SCOPE_EVENT = 'signaldock:pace-scope';
+let paceScope = 'global';
+export function getPaceScope(): string { return paceScope; }
+export function setPaceScope(scope: string): void {
+  if (paceScope === scope) return;
+  paceScope = scope;
+  window.dispatchEvent(new Event(PACE_SCOPE_EVENT));
+}
+
+const pace = (scope: string, feature: string, phase: PacePhase) => {
+  window.dispatchEvent(new CustomEvent('signaldock:request-pace', { detail: { scope, feature, phase } }));
 };
 
 /** 把真实用户侧的慢连接/超时留痕，供 /ops/status 看板统计；上报失败绝不影响业务请求。 */
@@ -89,14 +100,15 @@ export function request<T>(url: string, options: RequestOptions = {}): Promise<T
   const method = (options.method ?? 'GET').toUpperCase();
   const readOnly = method === 'GET' || method === 'HEAD';
   const feature = featureOf(url, method, options.feature);
+  const scope = paceScope;
   const key = method + ' ' + url;
   if (readOnly && !options.signal && inflight.has(key)) return inflight.get(key) as Promise<T>;
-  const task = run<T>(url, options, method, feature).finally(() => { pace(feature, 'done'); inflight.delete(key); });
+  const task = run<T>(url, options, method, feature, scope).finally(() => { pace(scope, feature, 'done'); inflight.delete(key); });
   if (readOnly && !options.signal) inflight.set(key, task);
   return task;
 }
 
-async function run<T>(url: string, options: RequestOptions, method: string, feature: string): Promise<T> {
+async function run<T>(url: string, options: RequestOptions, method: string, feature: string, scope: string): Promise<T> {
   const { feature: _feature, timeoutMs: _timeoutMs, ...init } = options;
   const quick = method === 'GET' || method === 'HEAD' || url.startsWith(LOGIN_PATH);
   const timeoutMs = options.timeoutMs ?? (quick ? QUICK_TIMEOUT_MS : SLOW_TIMEOUT_MS);
@@ -117,7 +129,7 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
     const timer = window.setTimeout(() => { state.reason = 'timeout'; controller.abort(); }, timeoutMs);
     const slowTimer = attempt === 0 && quick
       ? window.setTimeout(() => {
-        pace(feature, 'slow');
+        pace(scope, feature, 'slow');
         if (!slowReported) {
           slowReported = true;
           reportTelemetry(feature, 'slow', SLOW_HINT_MS);
@@ -157,7 +169,7 @@ async function run<T>(url: string, options: RequestOptions, method: string, feat
       } else if (attempt === retries && state.reason !== 'timeout') {
         state.reason = 'network';
       }
-      if (attempt < retries) pace(feature, 'retry');
+      if (attempt < retries) pace(scope, feature, 'retry');
     } finally {
       window.clearTimeout(timer);
       if (slowTimer) window.clearTimeout(slowTimer);
