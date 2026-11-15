@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
+    ports:
+      - "127.0.0.1:3001:3001"
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -45,16 +47,6 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
-    restart: unless-stopped
-
-  client:
-    build:
-      context: .
-      dockerfile: client/Dockerfile
-    ports:
-      - "127.0.0.1:8080:80"
-    depends_on:
-      - server
     restart: unless-stopped
 
 volumes:
